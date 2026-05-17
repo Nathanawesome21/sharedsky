@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>The Shared Sky</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Cinzel:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Cinzel:wght@400;500;700&display=swap" rel="stylesheet" />
 
   <script type="importmap">
     { "imports": { "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm" } }
@@ -18,29 +18,92 @@
     }
     html, body { height: 100%; background: var(--sky); color: var(--ink); font-family: 'Cormorant Garamond', Georgia, serif; overflow: hidden; }
 
-    #header { position: fixed; top: 0; left: 0; right: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; padding: 14px 22px; border-bottom: 0.5px solid var(--border); background: rgba(6,6,15,0.85); backdrop-filter: blur(12px); }
+    /* ── Main Menu System ── */
+    #screen-menu { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #06060f; z-index: 100; }
+    #menu-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .menu-wrap { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; }
+    .menu-title { font-family: 'Cinzel', serif; font-size: clamp(32px, 5vw, 64px); font-weight: 400; letter-spacing: 0.12em; color: var(--gold); text-align: center; text-shadow: 0 0 40px rgba(201,168,76,0.3); margin-bottom: 4px; }
+    .menu-sub { font-family: 'Cinzel', serif; font-size: clamp(10px, 1.4vw, 13px); color: var(--ink-dim); opacity: 0.7; letter-spacing: 0.2em; margin-bottom: 40px; text-transform: uppercase; }
+    .menu-section-label { font-size: 11px; color: var(--gold); opacity: 0.6; letter-spacing: 0.18em; margin: 16px 0 6px; font-family: 'Cinzel', serif; text-transform: uppercase; }
+    .menu-btn { font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.12em; background: transparent; color: var(--ink); border: 0.5px solid rgba(232,224,213,0.2); border-radius: 40px; padding: 12px 0; cursor: pointer; margin: 5px 0; width: 240px; transition: all 0.2s; text-align: center; }
+    .menu-btn:hover { color: var(--ink); border-color: var(--ink); background: rgba(232,224,213,0.05); box-shadow: 0 0 20px rgba(232,224,213,0.1); }
+    .menu-btn.mp { border-color: rgba(126,184,255,0.35); color: #7eb8ff; }
+    .menu-btn.mp:hover { background: rgba(126,184,255,0.08); border-color: #7eb8ff; box-shadow: 0 0 24px rgba(126,184,255,0.2); }
+    .menu-credit { position: absolute; bottom: 18px; right: 22px; font-size: 11px; color: var(--ink-faint); letter-spacing: 0.06em; font-family: 'Cinzel', serif; }
+
+    /* ── Window Overlays ── */
+    .overlay { position: absolute; inset: 0; background: rgba(6,6,15,0.92); backdrop-filter: blur(8px); z-index: 200; display: none; align-items: center; justify-content: center; }
+    .overlay.open { display: flex; }
+    .overlay-box { background: #0d0d1a; border: 0.5px solid var(--border); border-radius: 16px; padding: 32px 36px; max-width: 500px; width: 92%; position: relative; max-height: 85vh; overflow-y: auto; }
+    .overlay-box h2 { font-family: 'Cinzel', serif; font-size: 18px; font-weight: 400; margin-bottom: 20px; letter-spacing: 0.08em; color: var(--gold); }
+    .overlay-box p { font-size: 14px; line-height: 1.8; color: var(--ink-dim); margin-bottom: 12px; }
+    .overlay-close { position: absolute; top: 16px; right: 18px; background: none; border: none; color: var(--ink-dim); font-size: 18px; cursor: pointer; transition: color 0.2s; }
+    .overlay-close:hover { color: var(--ink); }
+
+    /* ── Load Game Dashboard UI ── */
+    #save-list { list-style: none; margin-bottom: 15px; max-height: 45vh; overflow-y: auto; }
+    .save-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border: 0.5px solid var(--border); border-radius: 8px; margin-bottom: 8px; gap: 10px; background: rgba(232,224,213,0.02); }
+    .save-item:hover { background: rgba(232,224,213,0.05); }
+    .save-info { flex: 1; cursor: pointer; min-width: 0; }
+    .save-name { font-family: 'Cinzel', serif; font-size: 13px; font-weight: 400; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .save-meta { font-size: 11px; color: var(--ink-dim); margin-top: 2px; }
+    .save-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+    .sa-btn { background: none; border: 0.5px solid rgba(232,224,213,0.3); color: var(--ink-dim); font-family: 'Cinzel', serif; font-size: 10px; border-radius: 4px; padding: 4px 10px; cursor: pointer; transition: all 0.2s; }
+    .sa-btn:hover { border-color: var(--ink); color: var(--ink); background: rgba(232,224,213,0.05); }
+    .sa-btn.red:hover { color: #ff7070; border-color: rgba(255,112,112,0.5); background: rgba(255,112,112,0.05); }
+    .empty-saves { text-align: center; color: var(--ink-faint); font-style: italic; font-size: 14px; padding: 30px 0; }
+    .io-bar { display: flex; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 0.5px solid var(--border); }
+    .io-btn { flex: 1; padding: 10px; border-radius: 30px; background: transparent; border: 0.5px solid rgba(232,224,213,0.3); color: var(--ink); font-family: 'Cinzel', serif; font-size: 11px; cursor: pointer; letter-spacing: 0.05em; transition: all 0.2s; }
+    .io-btn:hover { border-color: var(--ink); background: rgba(232,224,213,0.05); }
+
+    /* ── Achievements Dashboard ── */
+    #ach-progress { font-family: 'Cinzel', serif; font-size: 11px; color: var(--gold); margin-bottom: 16px; letter-spacing: 0.06em; opacity: 0.8; }
+    #ach-list { max-height: 55vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+    .ach-section { font-family: 'Cinzel', serif; font-size: 11px; color: var(--gold); opacity: 0.5; letter-spacing: 0.14em; text-transform: uppercase; margin: 12px 0 4px; padding-bottom: 4px; border-bottom: 0.5px solid var(--border); }
+    .ach-item { display: flex; align-items: center; gap: 14px; padding: 12px; border: 0.5px solid var(--border); border-radius: 8px; background: rgba(232,224,213,0.01); transition: all 0.3s; }
+    .ach-item.unlocked { border-color: rgba(201,168,76,0.35); background: rgba(201,168,76,0.03); }
+    .ach-item.locked { opacity: 0.35; }
+    .ach-icon { font-size: 20px; flex-shrink: 0; }
+    .ach-name { font-family: 'Cinzel', serif; font-size: 13px; font-weight: 500; color: var(--ink); margin-bottom: 2px; }
+    .ach-desc { font-size: 12px; color: var(--ink-dim); line-height: 1.5; }
+    #ach-toast { position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-100px); background: rgba(13,13,32,0.96); border: 0.5px solid var(--gold); border-radius: 40px; padding: 10px 24px; display: flex; align-items: center; gap: 12px; pointer-events: none; opacity: 0; transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); z-index: 500; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    #ach-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #ach-toast .t-icon { font-size: 20px; }
+    #ach-toast .t-title { font-family: 'Cinzel', serif; font-size: 11px; color: var(--gold); text-transform: uppercase; letter-spacing: 0.08em; }
+    #ach-toast .t-name { font-family: 'Cinzel', serif; font-size: 13px; color: var(--ink); }
+
+    /* ── Stats Dashboard ── */
+    .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 0.5px solid var(--border); font-size: 14px; }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-label { color: var(--ink-dim); }
+    .stat-value { font-family: 'Cinzel', serif; font-size: 13px; color: var(--ink); }
+
+    /* ── Main Canvas View UI ── */
+    #header { position: fixed; top: 0; left: 0; right: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; padding: 14px 22px; border-bottom: 0.5px solid var(--border); background: rgba(6,6,15,0.85); backdrop-filter: blur(12px); display: none; }
     #header h1 { font-family: 'Cinzel', serif; font-size: 16px; font-weight: 400; letter-spacing: 0.12em; color: var(--gold); }
     #header-right { display: flex; align-items: center; gap: 18px; }
     #online-count { font-size: 11px; font-family: 'Cinzel', serif; letter-spacing: 0.1em; color: rgba(134,239,172,0.7); }
     #header p { font-size: 12px; color: var(--ink-dim); font-style: italic; }
 
-    #toolbar { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; align-items: center; gap: 8px; background: rgba(13,13,32,0.92); border: 0.5px solid var(--border); border-radius: 40px; padding: 9px 16px; backdrop-filter: blur(16px); white-space: nowrap; }
+    #toolbar { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; align-items: center; gap: 8px; background: rgba(13,13,32,0.92); border: 0.5px solid var(--border); border-radius: 40px; padding: 9px 16px; backdrop-filter: blur(16px); white-space: nowrap; display: none; }
     .tbtn { background: transparent; border: 0.5px solid transparent; border-radius: 24px; padding: 6px 14px; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 0.08em; color: var(--ink-dim); cursor: pointer; transition: all 0.2s; }
     .tbtn:hover { color: var(--ink); border-color: var(--border); }
     .tbtn.active { color: #7eb8ff; border-color: rgba(126,184,255,0.35); background: rgba(126,184,255,0.08); }
     .tbtn.gold { color: var(--gold); border-color: rgba(201,168,76,0.35); }
     .tbtn.gold:hover { background: rgba(201,168,76,0.1); }
     .tbtn.red:hover { color: #ff7070; border-color: rgba(255,112,112,0.35); }
+    .tbtn.back { color: var(--ink-dim); border-color: rgba(232,224,213,0.15); }
+    .tbtn.back:hover { color: var(--ink); border-color: rgba(232,224,213,0.4); }
     .div { width: 0.5px; height: 18px; background: var(--border); flex-shrink: 0; }
     #ni { background: transparent; border: none; outline: none; font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 14px; color: var(--ink); width: 150px; letter-spacing: 0.03em; }
     #ni::placeholder { color: var(--ink-faint); }
 
     canvas { display: block; touch-action: none; cursor: crosshair; }
 
-    #hint { position: fixed; top: 62px; left: 50%; transform: translateX(-50%); font-size: 12px; font-style: italic; color: var(--ink-dim); letter-spacing: 0.06em; pointer-events: none; transition: opacity 0.6s; white-space: nowrap; opacity: 1; }
-    #badge { position: fixed; top: 62px; right: 20px; font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 0.1em; color: var(--ink-dim); }
+    #hint { position: fixed; top: 62px; left: 50%; transform: translateX(-50%); font-size: 12px; font-style: italic; color: var(--ink-dim); letter-spacing: 0.06em; pointer-events: none; transition: opacity 0.6s; white-space: nowrap; opacity: 1; display: none; }
+    #badge { position: fixed; top: 62px; right: 20px; font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 0.1em; color: var(--ink-dim); display: none; }
     #zoom-badge { position: fixed; bottom: 72px; right: 20px; font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 0.1em; color: var(--ink-dim); opacity: 0; transition: opacity 0.4s; }
-    #tags { position: fixed; top: 62px; left: 20px; display: flex; flex-direction: column; gap: 5px; max-height: calc(100vh - 140px); overflow-y: auto; }
+    #tags { position: fixed; top: 62px; left: 20px; display: flex; flex-direction: column; gap: 5px; max-height: calc(100vh - 140px); overflow-y: auto; display: none; }
     .tag { font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 0.1em; padding: 3px 9px; border-radius: 20px; border: 0.5px solid; opacity: 0.8; animation: fi 0.4s ease; }
     @keyframes fi { from { opacity: 0; transform: translateY(4px); } to { opacity: 0.8; } }
     #toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(13,13,32,0.95); border: 0.5px solid var(--border); border-radius: 20px; padding: 7px 18px; font-size: 12px; font-style: italic; color: var(--ink-dim); pointer-events: none; opacity: 0; transition: opacity 0.3s; white-space: nowrap; }
@@ -49,25 +112,65 @@
 
     /* ── Mobile Landscape Force Fix ── */
     @media screen and (max-width: 768px) and (orientation: portrait) {
-      body {
-        transform: rotate(-90deg);
-        transform-origin: left top;
-        width: 100vh;
-        height: 100vw;
-        position: absolute;
-        top: 100%;
-        left: 0;
-      }
-      #header, #toolbar, #tags, #toast, #syncing, #badge, #zoom-badge {
-        box-sizing: border-box;
-      }
+      body { transform: rotate(-90deg); transform-origin: left top; width: 100vh; height: 100vw; position: absolute; top: 100%; left: 0; }
+      #header, #toolbar, #tags, #toast, #syncing, #badge, #zoom-badge { box-sizing: border-box; }
     }
   </style>
 </head>
 <body>
 
+<div id="screen-menu">
+  <canvas id="menu-canvas"></canvas>
+  <div class="menu-wrap">
+    <div class="menu-title">The Shared Sky</div>
+    <div class="menu-sub">a star-mapping canvas</div>
+    
+    <div class="menu-section-label">Singleplayer</div>
+    <button class="menu-btn" id="menu-new-sky">New Sky</button>
+    <button class="menu-btn" id="menu-load-sky">Load Saved Sky</button>
+    
+    <div class="menu-section-label">Online</div>
+    <button class="menu-btn mp" id="menu-enter-mp">The Shared Sky &#10022;</button>
+    
+    <div style="margin-top: 24px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 340px;">
+      <button class="menu-btn" id="menu-open-ach" style="width: 110px; padding: 8px; font-size: 11px; opacity: 0.7;">Achievements</button>
+      <button class="menu-btn" id="menu-open-stats" style="width: 110px; padding: 8px; font-size: 11px; opacity: 0.7;">Analytics</button>
+    </div>
+  </div>
+  <div class="menu-credit">2026 &middot; engine build</div>
+</div>
+
+<div class="overlay" id="overlay-load">
+  <div class="overlay-box">
+    <button class="overlay-close" id="close-load">&#10005;</button>
+    <h2>Load Local Horizon</h2>
+    <ul id="save-list"></ul>
+    <div class="io-bar">
+      <button class="io-btn" id="io-import-btn">&#8679; Import JSON Matrix</button>
+      <input type="file" id="import-file-input" accept=".json" style="display: none;">
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-achievements">
+  <div class="overlay-box" style="max-width: 520px;">
+    <button class="overlay-close" id="close-ach">&#10005;</button>
+    <h2>Constellation Matrix Milestones</h2>
+    <div id="ach-progress">0 / 0 Unlocked</div>
+    <div id="ach-list"></div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-stats">
+  <div class="overlay-box" style="max-width: 400px;">
+    <button class="overlay-close" id="close-stats">&#10005;</button>
+    <h2>Telemetry & System Metrics</h2>
+    <div id="stats-content"></div>
+  </div>
+</div>
+
 <div id="header">
-  <h1>The Shared Sky</h1>
+  <h1 id="sky-title-label">The Shared Sky</h1>
   <div id="header-right">
     <span id="online-count"></span>
     <p>a constellation for every visitor</p>
@@ -88,13 +191,16 @@
   <div class="div"></div>
   <button class="tbtn gold" onclick="saveConstellation()">Add</button>
   <button class="tbtn red"  onclick="clearCurrent()">Clear</button>
+  <div class="div"></div>
+  <button class="tbtn back" id="btn-exit-canvas">← Exit</button>
 </div>
 <div id="toast"></div>
+<div id="ach-toast"><span class="t-icon">🏆</span><div class="t-text"><div class="t-title">Milestone Unlocked</div><div class="t-name" id="ach-toast-name"></div></div></div>
 
 <script type="module">
 import { createClient } from '@supabase/supabase-js';
 
-// ── Config ──
+// ── Configuration Hooks ──
 const SUPABASE_URL = 'https://zaiiyvukmrmioynvinrh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphaWl5dnVrbXJtaW95bnZpbnJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NjQyODcsImV4cCI6MjA5NDU0MDI4N30.PHKglD5lSepP0b64Ohfl7tJ4IJo80yCJvZs2O8_W1YU';
 
@@ -108,12 +214,36 @@ if (!configured) {
 let db = null;
 if (configured) db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ── Canvas ──
+// ── Application Modes & Identity Matrix ──
+let isMultiplayerMode = false;
+let currentActiveSkyId = null; 
+let currentActiveSkyName = "Local Sky Base";
+const LOCAL_STORAGE_SAVEDB_KEY = 'sharedsky_local_horizons';
+const ACHIEVEMENT_STORAGE_KEY = 'sharedsky_unlocked_milestones';
+const SYSTEM_ANALYTICS_KEY = 'sharedsky_system_telemetry';
+
+// ── UI View Toggle Nodes ──
+const uiElements = {
+  menu: document.getElementById('screen-menu'),
+  header: document.getElementById('header'),
+  hint: document.getElementById('hint'),
+  badge: document.getElementById('badge'),
+  tags: document.getElementById('tags'),
+  toolbar: document.getElementById('toolbar')
+};
+
+// ── Canvas Framework ──
 const canvas = document.getElementById('sky');
 const ctx = canvas.getContext('2d');
 let W, H;
 
-// ── Camera (world space) ──
+// ── Menu Starfield Animation Nodes ──
+const menuCanvas = document.getElementById('menu-canvas');
+const mctx = menuCanvas.getContext('2d');
+let menuStars = [];
+let isMenuLoopRunning = true;
+
+// ── Camera (world space vector mapping) ──
 const cam = { x: 0, y: 0, zoom: 1 };
 const MIN_ZOOM = 0.08, MAX_ZOOM = 8;
 
@@ -130,10 +260,19 @@ function screenToWorld(sx, sy) {
   };
 }
 
-// ── Palette ──
+// ── Palette Matrix ──
 const COLORS = ['#7eb8ff','#ffd6a0','#c4b5fd','#86efac','#f9a8d4','#6ee7b7','#fde68a','#a5f3fc'];
 
-// ── Infinite Tiling Background Stars ──
+// ── Achievement / Milestone Architecture definitions ──
+const MILESTONE_REGISTRY = [
+  { id: 'first_star', name: 'Spark of Creation', desc: 'Anchor your first lone star inside a blank dark canvas space.' },
+  { id: 'constellation_add', name: 'Celestial Cartographer', desc: 'Group a drawn layout structure into a persistent named constellation cluster.' },
+  { id: 'horizon_saved', name: 'Quantum Archival', desc: 'Commit your active celestial coordinate framework into local persistent browser storage.' },
+  { id: 'multiplayer_voyage', name: 'Shared Horizon Convergence', desc: 'Sync your client terminal into the cross-platform global multiplayer instance.' },
+  { id: 'deep_space_connection', name: 'Entangled Vectors', desc: 'Establish an engineered line connection linking two individual cosmic nodes together.' }
+];
+
+// ── Infinite Tiling Background Stars Engine ──
 const BG_TILE = 2000;
 const BG_PER_TILE = 120;
 const BG_TILE_CACHE_MAX = 256;
@@ -169,7 +308,7 @@ function getBgTile(tx, ty) {
   return stars;
 }
 
-// ── State ──
+// ── Core Engine State ──
 let tick = 0, toastTimer, zoomBadgeTimer;
 let drawMode = 'star';
 let myStars = [], myLines = [], lineStart = null;
@@ -180,7 +319,7 @@ const visitorId = Math.random().toString(36).slice(2);
 // ── Shooting Stars State ──
 let shootingStars = [];
 
-// ── Interaction state ──
+// ── Interaction Vectors ──
 let isPanning = false, panStart = null, camStart = null;
 let lastPinchDist = null;
 let touchStart = null;
@@ -188,13 +327,269 @@ let didPan = false;
 let currentMousePos = { sx: 0, sy: 0 };
 let dragStartStarIdx = -1; 
 
-// ── Supabase ──
+// ── Analytics / Metric Registries ──
+let analyticsRegistry = {
+  sessionStarsPlaced: 0,
+  sessionLinesDrawn: 0,
+  totalSavesExecuted: 0,
+  historicalTotalStarsPlaced: 0
+};
+
+function loadSystemAnalytics() {
+  try {
+    const data = localStorage.getItem(SYSTEM_ANALYTICS_KEY);
+    if(data) {
+      const parsed = JSON.parse(data);
+      analyticsRegistry.historicalTotalStarsPlaced = parsed.historicalTotalStarsPlaced || 0;
+      analyticsRegistry.totalSavesExecuted = parsed.totalSavesExecuted || 0;
+    }
+  } catch(e) { console.error("Metrics load fault:", e); }
+}
+
+function updateSystemAnalytics() {
+  try {
+    localStorage.setItem(SYSTEM_ANALYTICS_KEY, JSON.stringify({
+      historicalTotalStarsPlaced: analyticsRegistry.historicalTotalStarsPlaced,
+      totalSavesExecuted: analyticsRegistry.totalSavesExecuted
+    }));
+  } catch(e) { console.error("Metrics synchronization exception:", e); }
+}
+
+// ── Achievement Processing Engine ──
+function triggerMilestoneUnlock(id) {
+  try {
+    let unlocked = [];
+    const store = localStorage.getItem(ACHIEVEMENT_STORAGE_KEY);
+    if(store) unlocked = JSON.parse(store);
+    
+    if(!unlocked.includes(id)) {
+      unlocked.push(id);
+      localStorage.setItem(ACHIEVEMENT_STORAGE_KEY, JSON.stringify(unlocked));
+      
+      const target = MILESTONE_REGISTRY.find(m => m.id === id);
+      if(target) {
+        const toastNode = document.getElementById('ach-toast');
+        document.getElementById('ach-toast-name').textContent = target.name;
+        toastNode.classList.add('show');
+        setTimeout(() => { toastNode.classList.remove('show'); }, 4000);
+      }
+    }
+  } catch(e) { console.error("Milestone tracking pipeline fail:", e); }
+}
+
+// ── UI Modal Window Drivers ──
+function toggleOverlay(id, open = true) {
+  const panel = document.getElementById(`overlay-${id}`);
+  if(open) panel.classList.add('open');
+  else panel.classList.remove('open');
+}
+
+// ── Local Database Save/Load Orchestration Engine ──
+function getLocalSaves() {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_SAVEDB_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) {
+    console.error("Local storage lookup corruption protection:", e);
+    return [];
+  }
+}
+
+function saveHorizonToLocalStorage(explicitName = null) {
+  try {
+    let saves = getLocalSaves();
+    const saveName = explicitName || prompt("Enter a registry key for this sky state:", currentActiveSkyName) || currentActiveSkyName;
+    
+    const contextPayload = {
+      id: currentActiveSkyId || Date.now().toString(),
+      name: saveName,
+      timestamp: new Date().toLocaleString(),
+      stars: myStars,
+      lines: myLines,
+      constellations: constellations,
+      cam: { x: cam.x, y: cam.y, zoom: cam.zoom }
+    };
+    
+    const uniqueIndex = saves.findIndex(item => item.id === contextPayload.id);
+    if(uniqueIndex !== -1) {
+      saves[uniqueIndex] = contextPayload;
+    } else {
+      saves.unshift(contextPayload);
+    }
+    
+    localStorage.setItem(LOCAL_STORAGE_SAVEDB_KEY, JSON.stringify(saves));
+    currentActiveSkyId = contextPayload.id;
+    currentActiveSkyName = contextPayload.name;
+    
+    analyticsRegistry.totalSavesExecuted++;
+    updateSystemAnalytics();
+    triggerMilestoneUnlock('horizon_saved');
+    toast(`Sky saved safely under index "${saveName}"`);
+  } catch(e) {
+    toast("Archival sequence failed. Core quota limit exception.");
+    console.error(e);
+  }
+}
+
+function processLocalDatabaseRender() {
+  const container = document.getElementById('save-list');
+  container.innerHTML = "";
+  const universes = getLocalSaves();
+  
+  if(universes.length === 0) {
+    container.innerHTML = `<div class="empty-saves">No horizons found in system memory. Create a new template matrix.</div>`;
+    return;
+  }
+  
+  universes.forEach(uni => {
+    const row = document.createElement('li');
+    row.className = "save-item";
+    row.innerHTML = `
+      <div class="save-info">
+        <div class="save-name">${uni.name}</div>
+        <div class="save-meta">Timestamp: ${uni.timestamp} | Nodes: ${uni.stars ? uni.stars.length : 0}</div>
+      </div>
+      <div class="save-actions">
+        <button class="sa-btn action-load-trigger">Load</button>
+        <button class="sa-btn red action-purge-trigger">Delete</button>
+      </div>
+    `;
+    
+    row.querySelector('.action-load-trigger').onclick = () => {
+      myStars = uni.stars || [];
+      myLines = uni.lines || [];
+      constellations = uni.constellations || [];
+      cam.x = uni.cam ? uni.cam.x : 0;
+      cam.y = uni.cam ? uni.cam.y : 0;
+      cam.zoom = uni.cam ? uni.cam.zoom : 1;
+      
+      currentActiveSkyId = uni.id;
+      currentActiveSkyName = uni.name;
+      toggleOverlay('load', false);
+      launchSystemHorizonView(false);
+    };
+    
+    row.querySelector('.action-purge-trigger').onclick = (e) => {
+      e.stopPropagation();
+      if(confirm(`Purge universe template "${uni.name}" completely from system registry?`)) {
+        let updated = getLocalSaves().filter(t => t.id !== uni.id);
+        localStorage.setItem(LOCAL_STORAGE_SAVEDB_KEY, JSON.stringify(updated));
+        if(currentActiveSkyId === uni.id) currentActiveSkyId = null;
+        processLocalDatabaseRender();
+      }
+    };
+    
+    container.appendChild(row);
+  });
+}
+
+function triggerSystemJSONExport() {
+  try {
+    const payload = {
+      formatId: "sharedsky_matrix_export",
+      name: currentActiveSkyName,
+      stars: myStars,
+      lines: myLines,
+      constellations: constellations
+    };
+    const stringified = JSON.stringify(payload, null, 2);
+    const blob = new Blob([stringified], { type: "application/json" });
+    const virtualAnchor = document.createElement('a');
+    virtualAnchor.href = URL.createObjectURL(blob);
+    virtualAnchor.download = `${currentActiveSkyName.toLowerCase().replace(/\s+/g, '_')}_export.json`;
+    virtualAnchor.click();
+  } catch(e) { console.error("Export fault:", e); }
+}
+
+// ── Menu Starfield Background Renderer ──
+function constructMenuStarfield() {
+  menuCanvas.width = window.innerWidth;
+  menuCanvas.height = window.innerHeight;
+  menuStars = Array.from({ length: 180 }, () => ({
+    x: Math.random() * menuCanvas.width,
+    y: Math.random() * menuCanvas.height,
+    r: Math.random() * 1.5 + 0.2,
+    alpha: Math.random(),
+    frequency: (Math.random() - 0.5) * 0.01
+  }));
+}
+
+function processMenuStarfieldLoop() {
+  if (!isMenuLoopRunning) return;
+  mctx.clearRect(0, 0, menuCanvas.width, menuCanvas.height);
+  mctx.fillStyle = '#06060f';
+  mctx.fillRect(0, 0, menuCanvas.width, menuCanvas.height);
+  
+  menuStars.forEach(s => {
+    s.alpha += s.frequency;
+    if (s.alpha <= 0 || s.alpha >= 1) s.frequency *= -1;
+    mctx.save();
+    mctx.globalAlpha = Math.max(0.05, Math.min(1, s.alpha));
+    mctx.fillStyle = '#e8e0d5';
+    mctx.beginPath();
+    mctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    mctx.fill();
+    mctx.restore();
+  });
+  requestAnimationFrame(processMenuStarfieldLoop);
+}
+
+// ── Global App State Transition Managers ──
+function launchSystemHorizonView(multiplayer = false) {
+  isMenuLoopRunning = false;
+  isMultiplayerMode = multiplayer;
+  
+  uiElements.menu.style.display = "none";
+  uiElements.header.style.display = "flex";
+  uiElements.hint.style.display = "block";
+  uiElements.badge.style.display = "block";
+  uiElements.tags.style.display = "flex";
+  uiElements.toolbar.style.display = "flex";
+  
+  const titleNode = document.getElementById('sky-title-label');
+  if(multiplayer) {
+    titleNode.innerHTML = `The Shared Sky <span style="font-size:10px; color:var(--gold); vertical-align:middle; margin-left:6px;">ONLINE</span>`;
+    document.getElementById('online-count').style.display = "inline";
+    triggerMilestoneUnlock('multiplayer_voyage');
+    connectDatabaseNetworkLayer();
+  } else {
+    titleNode.textContent = currentActiveSkyName;
+    document.getElementById('online-count').style.display = "none";
+    disconnectDatabaseNetworkLayer();
+  }
+  
+  resize();
+  updateTags();
+  updateCount();
+
+  // Start the canvas rendering loop
+  requestAnimationFrame(render);
+}
+
+function terminateSystemHorizonView() {
+  disconnectDatabaseNetworkLayer();
+  isMultiplayerMode = false;
+  isMenuLoopRunning = true;
+  
+  uiElements.header.style.display = "none";
+  uiElements.hint.style.display = "none";
+  uiElements.badge.style.display = "none";
+  uiElements.tags.style.display = "none";
+  uiElements.toolbar.style.display = "none";
+  uiElements.menu.style.display = "flex";
+  
+  constructMenuStarfield();
+  processMenuStarfieldLoop();
+}
+
+// ── Database Realtime Synchronization Pipelines (Multiplayer Layer Only) ──
 async function loadAll() {
   if (!db) return [];
   const { data, error } = await db.from('constellations').select('*').order('created_at', { ascending: true });
   if (error) throw new Error(error.message);
   return data || [];
 }
+
 async function insertOne(record) {
   const { data, error } = await db.from('constellations').insert([record]).select().single();
   if (error) throw error;
@@ -204,12 +599,8 @@ async function insertOne(record) {
 let latestSeenAt = null;
 let pollInFlight = false;
 async function pollForNew() {
-  if (!db) {
-    setTimeout(pollForNew, 4000);
-    return;
-  }
-  if (pollInFlight) {
-    setTimeout(pollForNew, 4000);
+  if (!isMultiplayerMode || !db || pollInFlight) {
+    if(isMultiplayerMode) setTimeout(pollForNew, 4000);
     return;
   }
   pollInFlight = true;
@@ -227,9 +618,13 @@ async function pollForNew() {
           added++;
         }
       });
-      if (added > 0) { updateTags(); updateCount(); toast('✦ ' + added + ' new constellation' + (added > 1 ? 's' : '') + ' appeared'); }
+      if (added > 0) { 
+        updateTags(); 
+        updateCount(); 
+        toast(`✦ ${added} new constellation${added > 1 ? 's' : ''} aligned`); 
+      }
     }
-  } catch(e) { console.warn('poll:', e.message); }
+  } catch(e) { console.warn('Polling failure exception handled:', e.message); }
   pollInFlight = false;
   setTimeout(pollForNew, 4000);
 }
@@ -239,15 +634,35 @@ function setupPresence(onCountChange) {
   if (!db) return;
   presenceChannel = db.channel('sky-presence', { config: { presence: { key: visitorId } } });
   presenceChannel
-    .on('presence', { event: 'sync' }, () => onCountChange(Object.keys(presenceChannel.presenceState()).length))
+    .on('presence', { event: 'sync' }, () => {
+      if(isMultiplayerMode) onCountChange(Object.keys(presenceChannel.presenceState()).length);
+    })
     .subscribe(async s => { if (s === 'SUBSCRIBED') await presenceChannel.track({ online_at: new Date().toISOString() }); });
-
-  window.addEventListener('beforeunload', () => {
-    if (presenceChannel) presenceChannel.unsubscribe();
-  });
 }
 
-// ── Draw helpers ──
+async function connectDatabaseNetworkLayer() {
+  if (!db) return;
+  showSyncing(true);
+  try {
+    const raw = await loadAll();
+    constellations = raw.map(migrateConstellation);
+    if (constellations.length > 0) latestSeenAt = constellations[constellations.length - 1].created_at;
+    updateTags();
+    updateCount();
+  } catch(e) { console.error("Database stack hydration fault:", e); }
+  showSyncing(false);
+}
+
+function disconnectDatabaseNetworkLayer() {
+  if (presenceChannel) {
+    presenceChannel.unsubscribe();
+    presenceChannel = null;
+  }
+  constellations = [];
+  latestSeenAt = null;
+}
+
+// ── Vector Drawing Utilities ──
 function drawStarShape(wx, wy, r, color, alpha, glow) {
   const { x, y } = worldToScreen(wx, wy);
   const sr = r * cam.zoom;
@@ -260,14 +675,12 @@ function drawStarShape(wx, wy, r, color, alpha, glow) {
   ctx.restore();
 }
 
-// ── Shooting Star Engine ──
+// ── Kinetic Meteor Trajectory Driver ──
 function spawnShootingStar() {
   const topLeft = screenToWorld(0, 0);
   const bottomRight = screenToWorld(W, H);
-
   const startX = topLeft.x + Math.random() * (bottomRight.x - topLeft.x);
   const startY = topLeft.y + Math.random() * (bottomRight.y - topLeft.y) * 0.4;
-
   const angle = Math.PI * 0.25 + (Math.random() * 0.15 - 0.075);
   const speed = (25 + Math.random() * 20) / cam.zoom;
 
@@ -284,16 +697,12 @@ function spawnShootingStar() {
 
 function translateClientPos(sx, sy) {
   const isForcedLandscape = window.innerWidth <= 768 && window.innerHeight > window.innerWidth;
-  if (isForcedLandscape) {
-    return { sx: sy, sy: window.innerWidth - sx };
-  }
+  if (isForcedLandscape) return { sx: sy, sy: window.innerWidth - sx };
   return { sx, sy };
 }
 
 function updateAndDrawShootingStars() {
-  if (Math.random() < 0.008) {
-    spawnShootingStar();
-  }
+  if (Math.random() < 0.008) spawnShootingStar();
 
   shootingStars = shootingStars.filter(ss => {
     ss.life -= ss.decay;
@@ -323,8 +732,9 @@ function updateAndDrawShootingStars() {
   });
 }
 
-// ── Render ──
+// ── Main Frame Rendering Execution ──
 function render() {
+  if (isMenuLoopRunning) return;
   ctx.clearRect(0, 0, W, H);
 
   const g = ctx.createRadialGradient(W * 0.4, H * 0.3, 0, W * 0.5, H * 0.5, Math.max(W, H) * 0.8);
@@ -448,7 +858,7 @@ function render() {
   requestAnimationFrame(render);
 }
 
-// ── Mode ──
+// ── Brush Operational Tool Selection ──
 function setDrawMode(m) {
   drawMode = m; lineStart = null; dragStartStarIdx = -1;
   document.getElementById('btn-star').className = 'tbtn' + (m === 'star' ? ' active' : '');
@@ -464,7 +874,7 @@ function setDrawMode(m) {
   }[m];
 }
 
-// ── Pointer helpers ──
+// ── Coordinate Normalization Engines ──
 function clientPos(e) {
   const r = canvas.getBoundingClientRect();
   const cx = e.touches ? e.touches[0].clientX : e.clientX;
@@ -506,7 +916,7 @@ function getLineDistance(wx, wy, p1, p2) {
   return Math.hypot(wx - xx, wy - yy);
 }
 
-// ── Zoom helper ──
+// ── Dynamic Zoom Multiplier ──
 function applyZoom(factor, pivotSx, pivotSy) {
   const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, cam.zoom * factor));
   if (newZoom === cam.zoom) return;
@@ -526,24 +936,19 @@ function showZoom() {
   zoomBadgeTimer = setTimeout(() => el.style.opacity = '0', 1200);
 }
 
-// ── Mouse & Touchpad Wheel events ──
+// ── Input Layer Event Subscriptions (Preserves Mouse Wheel Fixed Controls) ──
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
   const { sx, sy } = clientPos(e);
-  
   if (e.ctrlKey || e.metaKey) {
-    // Zoom around cursor coordinates during a touchpad pinch gesture
     const factor = Math.exp(-e.deltaY * 0.01);
     applyZoom(factor, sx, sy);
   } else {
-    // FIXED: Maps all regular vertical wheel inputs directly to step zooming.
-    // Two-finger trackpad panning updates are safely ignored.
     const factor = e.deltaY < 0 ? 1.1 : 0.9;
     applyZoom(factor, sx, sy);
   }
 }, { passive: false });
 
-// ── Mouse events ──
 canvas.addEventListener('mousedown', e => {
   if (e.button !== 0 && e.button !== 1) return;
   const { sx, sy } = clientPos(e);
@@ -572,12 +977,10 @@ canvas.addEventListener('mousemove', e => {
   if (panStart) {
     if (Math.abs(sx - panStart.sx) > 4 || Math.abs(sy - panStart.sy) > 4) {
       didPan = true;
-      
       if (drawMode === 'line' && dragStartStarIdx !== -1 && lineStart === null) {
         lineStart = dragStartStarIdx;
       }
     }
-
     if (isPanning) {
       const dx = (sx - panStart.sx) / cam.zoom;
       const dy = (sy - panStart.sy) / cam.zoom;
@@ -587,23 +990,24 @@ canvas.addEventListener('mousemove', e => {
       return;
     }
   }
-  
   hoveredStar = nearestWorldStar(wx, wy, myStars);
 });
 
 canvas.addEventListener('mouseup', e => {
   const { sx, sy } = clientPos(e);
   const { x: wx, y: wy } = screenToWorld(sx, sy);
-  
   canvas.style.cursor = drawMode === 'erase' ? 'cell' : 'crosshair';
 
   if (drawMode === 'line') {
     const hit = nearestWorldStar(wx, wy, myStars);
-
     if (didPan) {
       if (dragStartStarIdx !== -1 && hit !== -1 && dragStartStarIdx !== hit) {
         const dup = myLines.some(([a, b]) => (a === dragStartStarIdx && b === hit) || (a === hit && b === dragStartStarIdx));
-        if (!dup) myLines.push([dragStartStarIdx, hit]);
+        if (!dup) {
+          myLines.push([dragStartStarIdx, hit]);
+          analyticsRegistry.sessionLinesDrawn++;
+          triggerMilestoneUnlock('deep_space_connection');
+        }
       }
       lineStart = null; 
     } else {
@@ -614,40 +1018,35 @@ canvas.addEventListener('mouseup', e => {
           lineStart = null;
         } else {
           const dup = myLines.some(([a, b]) => (a === lineStart && b === hit) || (a === hit && b === lineStart));
-          if (!dup) myLines.push([lineStart, hit]);
+          if (!dup) {
+            myLines.push([lineStart, hit]);
+            analyticsRegistry.sessionLinesDrawn++;
+            triggerMilestoneUnlock('deep_space_connection');
+          }
           lineStart = null;
         }
       } else {
         lineStart = null;
       }
     }
-
-    isPanning = false;
-    panStart = null;
-    dragStartStarIdx = -1;
+    isPanning = false; panStart = null; dragStartStarIdx = -1;
     return;
   }
 
   if (isPanning && didPan) {
-    isPanning = false;
-    panStart = null;
+    isPanning = false; panStart = null;
     return; 
   }
-  
-  isPanning = false;
-  panStart = null;
+  isPanning = false; panStart = null;
   handlePlace(sx, sy);
 });
 
 canvas.addEventListener('mouseleave', () => {
-  isPanning = false;
-  panStart = null;
-  hoveredStar = null;
-  dragStartStarIdx = -1;
+  isPanning = false; panStart = null; hoveredStar = null; dragStartStarIdx = -1;
   canvas.style.cursor = drawMode === 'erase' ? 'cell' : 'crosshair';
 });
 
-// ── Touch events ──
+// ── Mobile Touch Interfaces ──
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
   if (e.touches.length === 2) {
@@ -661,18 +1060,13 @@ canvas.addEventListener('touchstart', e => {
     currentMousePos = { sx, sy };
     const { x: wx, y: wy } = screenToWorld(sx, sy);
 
-    isPanning = true;
-    didPan = false;
-    dragStartStarIdx = -1;
+    isPanning = true; didPan = false; dragStartStarIdx = -1;
     touchStart = { sx, sy, camX: cam.x, camY: cam.y, t: Date.now() };
     panStart = { sx, sy };
 
     if (drawMode === 'line') {
       const hit = nearestWorldStar(wx, wy, myStars);
-      if (hit !== -1) {
-        isPanning = false;
-        dragStartStarIdx = hit;
-      }
+      if (hit !== -1) { isPanning = false; dragStartStarIdx = hit; }
     }
   }
 }, { passive: false });
@@ -716,7 +1110,6 @@ canvas.addEventListener('touchmove', e => {
 canvas.addEventListener('touchend', e => {
   e.preventDefault();
   lastPinchDist = null;
-
   if (!touchStart) return;
 
   const boundingBox = canvas.getBoundingClientRect();
@@ -727,11 +1120,14 @@ canvas.addEventListener('touchend', e => {
 
   if (drawMode === 'line') {
     const hit = nearestWorldStar(wx, wy, myStars);
-
     if (didPan) {
       if (dragStartStarIdx !== -1 && hit !== -1 && dragStartStarIdx !== hit) {
         const dup = myLines.some(([a, b]) => (a === dragStartStarIdx && b === hit) || (a === hit && b === dragStartStarIdx));
-        if (!dup) myLines.push([dragStartStarIdx, hit]);
+        if (!dup) {
+          myLines.push([dragStartStarIdx, hit]);
+          analyticsRegistry.sessionLinesDrawn++;
+          triggerMilestoneUnlock('deep_space_connection');
+        }
       }
       lineStart = null;
     } else {
@@ -742,34 +1138,27 @@ canvas.addEventListener('touchend', e => {
           lineStart = null;
         } else {
           const dup = myLines.some(([a, b]) => (a === lineStart && b === hit) || (a === hit && b === lineStart));
-          if (!dup) myLines.push([lineStart, hit]);
+          if (!dup) {
+            myLines.push([lineStart, hit]);
+            analyticsRegistry.sessionLinesDrawn++;
+            triggerMilestoneUnlock('deep_space_connection');
+          }
           lineStart = null;
         }
       } else {
         lineStart = null;
       }
     }
-
-    isPanning = false;
-    touchStart = null;
-    panStart = null;
-    dragStartStarIdx = -1;
-    didPan = false;
+    isPanning = false; touchStart = null; panStart = null; dragStartStarIdx = -1; didPan = false;
     return;
   }
 
-  if (!didPan && Date.now() - touchStart.t < 300) {
-    handlePlace(sx, sy);
-  }
+  if (!didPan && Date.now() - touchStart.t < 300) handlePlace(sx, sy);
 
-  touchStart = null;
-  panStart = null;
-  isPanning = false;
-  didPan = false;
-  dragStartStarIdx = -1;
+  touchStart = null; panStart = null; isPanning = false; didPan = false; dragStartStarIdx = -1;
 }, { passive: false });
 
-// ── Interaction Logic ──
+// ── Workspace Coordinate Plotting Logic ──
 function handlePlace(sx, sy) {
   const { x: wx, y: wy } = screenToWorld(sx, sy);
   
@@ -777,11 +1166,18 @@ function handlePlace(sx, sy) {
     const existing = nearestWorldStar(wx, wy, myStars, 20);
     if (existing === -1) {
       myStars.push({ x: wx, y: wy, r: 2.5 + Math.random() * 1.5 });
+      analyticsRegistry.sessionStarsPlaced++;
+      analyticsRegistry.historicalTotalStarsPlaced++;
+      updateSystemAnalytics();
+      triggerMilestoneUnlock('first_star');
       updateCount();
+      
+      if(isMultiplayerMode && db) {
+        saveConstellationSilently();
+      }
     }
   } else if (drawMode === 'erase') {
     const starHit = nearestWorldStar(wx, wy, myStars, 24);
-    
     if (starHit !== -1) {
       myLines = myLines.filter(([a, b]) => a !== starHit && b !== starHit);
       myStars.splice(starHit, 1);
@@ -792,6 +1188,7 @@ function handlePlace(sx, sy) {
       });
       hoveredStar = null;
       updateCount();
+      if(isMultiplayerMode && db) saveConstellationSilently();
       return;
     }
     
@@ -815,13 +1212,19 @@ function handlePlace(sx, sy) {
     if (lineIdxToRemove !== -1) {
       myLines.splice(lineIdxToRemove, 1);
       updateCount();
+      if(isMultiplayerMode && db) saveConstellationSilently();
     }
   }
 }
 
-// ── Save ──
+// ── Serialization & Upload Sequence ──
 async function saveConstellation() {
   if (myStars.length === 0) { toast('place some stars first'); return; }
+  
+  if(!isMultiplayerMode) {
+    saveHorizonToLocalStorage();
+    return;
+  }
   
   const name = document.getElementById('ni').value.trim();
   if (!name) { toast('please name your constellation'); return; }
@@ -837,16 +1240,23 @@ async function saveConstellation() {
       constellations.push(saved);
       latestSeenAt = saved.created_at;
       updateTags(); updateCount();
-    } else {
-      const constellationsObj = JSON.parse(JSON.stringify(record));
-      constellations.push(constellationsObj); updateTags(); updateCount();
     }
     myStars = []; myLines = []; lineStart = null; dragStartStarIdx = -1;
     document.getElementById('ni').value = '';
+    triggerMilestoneUnlock('constellation_add');
     toast('"' + name + '" is now in the shared sky');
   } catch(e) { toast('save failed — check console'); console.error(e); }
   showSyncing(false);
   saving = false;
+}
+
+async function saveConstellationSilently() {
+  if (!db || saving || myStars.length === 0) return;
+  const color = '#7eb8ff';
+  const record = { name: "", color, stars: myStars, lines: myLines, canvas_w: 0, canvas_h: 0 };
+  try {
+    await insertOne(record);
+  } catch(e) { console.error("Silent sync background network failure handled:", e); }
 }
 
 function clearCurrent() { 
@@ -857,12 +1267,12 @@ function clearCurrent() {
   myStars = []; myLines = []; lineStart = null; dragStartStarIdx = -1; updateCount(); 
 }
 
-// ── UI ──
+// ── UI Data Synchronizers ──
 function showSyncing(on) { document.getElementById('syncing').style.opacity = on ? '1' : '0'; }
 
 function updateCount() {
   const total = constellations.reduce((n, c) => n + c.stars.length, 0) + myStars.length;
-  document.getElementById('badge').textContent = total > 0 ? total + ' stars in the sky' : '';
+  document.getElementById('badge').textContent = total > 0 ? total + ' stars in view' : '';
 }
 function updateOnlineCount(n) {
   const el = document.getElementById('online-count');
@@ -871,10 +1281,11 @@ function updateOnlineCount(n) {
 function updateTags() {
   const el = document.getElementById('tags'); el.innerHTML = '';
   constellations.slice(-12).forEach(c => {
+    if(!c.name) return;
     const t = document.createElement('div');
     t.className = 'tag'; t.style.color = c.color;
     t.style.borderColor = c.color + '55'; t.style.background = c.color + '0f';
-    t.textContent = '✦ ' + (c.name || 'Unnamed').toUpperCase();
+    t.textContent = '✦ ' + c.name.toUpperCase();
     el.appendChild(t);
   });
 }
@@ -887,7 +1298,6 @@ function toast(msg) {
 
 function resize() { 
   const isForcedLandscape = window.innerWidth <= 768 && window.innerHeight > window.innerWidth;
-  
   if (isForcedLandscape) {
     W = canvas.width = window.innerHeight;
     H = canvas.height = window.innerWidth;
@@ -909,45 +1319,122 @@ function migrateConstellation(c) {
   };
 }
 
-// ── Init ──
+// ── Interactive Module Subscriptions ──
+document.getElementById('menu-new-sky').onclick = () => {
+  currentActiveSkyId = null;
+  currentActiveSkyName = prompt("Name your universe template mapping:", "Custom Horizon") || "Custom Horizon";
+  myStars = [];
+  myLines = [];
+  constellations = [];
+  cam.x = 0; cam.y = 0; cam.zoom = 1;
+  launchSystemHorizonView(false);
+};
+
+document.getElementById('menu-load-sky').onclick = () => {
+  processLocalDatabaseRender();
+  toggleOverlay('load', true);
+};
+
+document.getElementById('io-import-btn').onclick = () => {
+  document.getElementById('import-file-input').click();
+};
+
+document.getElementById('import-file-input').onchange = (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const parsed = JSON.parse(event.target.result);
+      if(parsed.formatId === "sharedsky_matrix_export" || parsed.stars) {
+        myStars = parsed.stars || [];
+        myLines = parsed.lines || [];
+        constellations = parsed.constellations || [];
+        currentActiveSkyName = parsed.name || "Imported Matrix";
+        currentActiveSkyId = Date.now().toString();
+        toggleOverlay('load', false);
+        launchSystemHorizonView(false);
+        toast("Vector coordinates mapped successfully");
+      } else {
+        alert("JSON object properties mismatch target mapping scheme.");
+      }
+    } catch(err) { alert("Corrupted or broken JSON structure."); }
+  };
+  reader.readAsText(file);
+};
+
+document.getElementById('menu-enter-mp').onclick = () => {
+  launchSystemHorizonView(true);
+};
+
+document.getElementById('btn-exit-canvas').onclick = () => {
+  if(!isMultiplayerMode && myStars.length > 0) {
+    if(confirm("Commit active vectors into localized storage index before backing out?")) {
+      saveHorizonToLocalStorage(currentActiveSkyName);
+    }
+  }
+  terminateSystemHorizonView();
+};
+
+document.getElementById('menu-open-ach').onclick = () => {
+  let unlocked = [];
+  try {
+    const parsed = localStorage.getItem(ACHIEVEMENT_STORAGE_KEY);
+    if(parsed) unlocked = JSON.parse(parsed);
+  } catch(e) {}
+  
+  document.getElementById('ach-progress').textContent = `${unlocked.length} / ${MILESTONE_REGISTRY.length} Unlocked`;
+  const view = document.getElementById('ach-list');
+  view.innerHTML = "";
+  
+  MILESTONE_REGISTRY.forEach(m => {
+    const hasBeenUnlocked = unlocked.includes(m.id);
+    const element = document.createElement('div');
+    element.className = `ach-item ${hasBeenUnlocked ? 'unlocked' : 'locked'}`;
+    element.innerHTML = `
+      <div class="ach-icon">${hasBeenUnlocked ? '🌟' : '🔒'}</div>
+      <div>
+        <div class="ach-name">${m.name}</div>
+        <div class="ach-desc">${m.desc}</div>
+      </div>
+    `;
+    view.appendChild(element);
+  });
+  toggleOverlay('achievements', true);
+};
+
+document.getElementById('menu-open-stats').onclick = () => {
+  const target = document.getElementById('stats-content');
+  const savesCount = getLocalSaves().length;
+  target.innerHTML = `
+    <div class="stat-row"><span class="stat-label">Vector Nodes Drawn (Session)</span><span class="stat-value">${analyticsRegistry.sessionStarsPlaced}</span></div>
+    <div class="stat-row"><span class="stat-label">Historical Local Placements</span><span class="stat-value">${analyticsRegistry.historicalTotalStarsPlaced}</span></div>
+    <div class="stat-row"><span class="stat-label">Structural Lines Welded</span><span class="stat-value">${analyticsRegistry.sessionLinesDrawn}</span></div>
+    <div class="stat-row"><span class="stat-label">Persistent Storage Indexes</span><span class="stat-value">${savesCount} horizons</span></div>
+    <div class="stat-row"><span class="stat-label">Database Commit Calls</span><span class="stat-value">${analyticsRegistry.totalSavesExecuted} operations</span></div>
+  `;
+  toggleOverlay('stats', true);
+};
+
+// Overlay closing event handles
+document.getElementById('close-load').onclick = () => toggleOverlay('load', false);
+document.getElementById('close-ach').onclick = () => toggleOverlay('achievements', false);
+document.getElementById('close-stats').onclick = () => toggleOverlay('stats', false);
+
+// ── Application Initialization ──
 window.setDrawMode = setDrawMode;
 window.saveConstellation = saveConstellation;
 window.clearCurrent = clearCurrent;
 
-async function loadAllWithRetry(maxAttempts = 3, delayMs = 1500) {
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const raw = await loadAll();
-      return raw;
-    } catch (e) {
-      console.warn(`loadAll attempt ${attempt} failed:`, e.message);
-      if (attempt < maxAttempts) await new Promise(r => setTimeout(r, delayMs * attempt));
-    }
-  }
-  console.error('loadAll failed after', maxAttempts, 'attempts — starting with empty sky');
-  return [];
-}
-
-async function init() {
+function init() {
   resize();
-  updateTags(); updateCount();
-  render();
-
-  if (screen.orientation && screen.orientation.lock) {
-    canvas.addEventListener('click', () => {
-      screen.orientation.lock('landscape').catch(() => {});
-    }, { once: true });
-  }
-
-  if (db) {
-    showSyncing(true);
-    const raw = await loadAllWithRetry();
-    constellations = raw.map(migrateConstellation);
-    if (constellations.length > 0) latestSeenAt = constellations[constellations.length - 1].created_at;
-    showSyncing(false);
-    updateTags(); updateCount();
-    pollForNew();
+  loadSystemAnalytics();
+  constructMenuStarfield();
+  processMenuStarfieldLoop();
+  
+  if(db) {
     setupPresence(updateOnlineCount);
+    pollForNew();
   }
 }
 
