@@ -194,7 +194,7 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = 'https://zaiiyvukmrmioynvinrh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphaWl5dnVrbXJtaW95bnZpbnJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NjQyODcsImV4cCI6MjA5NDU0MDI4N30.PHKglD5lSepP0b64Ohfl7tJ4IJo80yCJvZs2O8_W1YU';
 
-const configured = SUPABASE_URL !== 'https://YOUR_PROJECT.supabase.co';
+const configured = SUPABASE_URL;
 if (!configured) {
   const w = document.createElement('div');
   w.id = 'config-warn';
@@ -665,6 +665,18 @@ async function pollForNew() {
   
   pollInFlight = false;
   setTimeout(pollForNew, 4000);
+}
+
+let presenceChannel = null;
+
+function setupPresence(onCountChange) {
+  if (!db) return;
+  presenceChannel = db.channel('sky-presence', { config: { presence: { key: visitorId } } });
+  presenceChannel
+    .on('presence', { event: 'sync' }, () => {
+      if(isMultiplayerMode) onCountChange(Object.keys(presenceChannel.presenceState()).length);
+    })
+    .subscribe(async s => { if (s === 'SUBSCRIBED') await presenceChannel.track({ online_at: new Date().toISOString() }); });
 }
 
 async function connectDatabaseNetworkLayer() {
@@ -1398,10 +1410,6 @@ document.getElementById('import-file-input').onchange = (e) => {
   reader.readAsText(file);
 };
 
-document.getElementById('menu-enter-mp').onclick = () => {
-  launchSystemHorizonView(true);
-};
-
 document.getElementById('btn-exit-canvas').onclick = () => {
   if (!isMultiplayerMode && hasUnsavedChanges) {
     const doSave = confirm("You have unsaved changes! Click OK to Save and Exit, or Cancel to exit without saving.");
@@ -1410,6 +1418,10 @@ document.getElementById('btn-exit-canvas').onclick = () => {
     }
   }
   terminateSystemHorizonView();
+};
+
+document.getElementById('menu-enter-mp').onclick = () => {
+  launchSystemHorizonView(true);
 };
 
 document.getElementById('menu-open-ach').onclick = () => {
