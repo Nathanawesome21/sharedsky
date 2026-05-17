@@ -331,7 +331,7 @@ function loadSystemAnalytics() {
     if(data) {
       const parsed = JSON.parse(data);
       analyticsRegistry.historicalTotalStarsPlaced = parsed.historicalTotalStarsPlaced || 0;
-      analyticsRegistry.historicalTotalLinesDrawn = parsed.historicalTotalLinesDrawn || 0; // NEW
+      analyticsRegistry.historicalTotalLinesDrawn = parsed.historicalTotalLinesDrawn || 0;
       analyticsRegistry.totalSavesExecuted = parsed.totalSavesExecuted || 0;
     }
   } catch(e) { console.error("Metrics load fault:", e); }
@@ -341,7 +341,7 @@ function updateSystemAnalytics() {
   try {
     localStorage.setItem(SYSTEM_ANALYTICS_KEY, JSON.stringify({
       historicalTotalStarsPlaced: analyticsRegistry.historicalTotalStarsPlaced,
-      historicalTotalLinesDrawn: analyticsRegistry.historicalTotalLinesDrawn, // NEW
+      historicalTotalLinesDrawn: analyticsRegistry.historicalTotalLinesDrawn,
       totalSavesExecuted: analyticsRegistry.totalSavesExecuted
     }));
   } catch(e) { console.error("Metrics synchronization exception:", e); }
@@ -628,22 +628,28 @@ async function insertOne(record) {
 
 let latestSeenAt = null;
 let pollInFlight = false;
+
 async function pollForNew() {
-  if (!isMultiplayerMode || !db || pollInFlight) {
-    if(isMultiplayerMode) setTimeout(pollForNew, 4000);
+  if (!db) return; 
+  
+  if (!isMultiplayerMode || pollInFlight) {
+    setTimeout(pollForNew, 4000);
     return;
   }
+  
   pollInFlight = true;
   try {
     let q = db.from('constellations').select('*').order('created_at', { ascending: true });
     if (latestSeenAt) q = q.gt('created_at', latestSeenAt);
+    
     const { data, error } = await q;
     if (error) throw error;
+    
     if (data && data.length > 0) {
       let added = 0;
       data.forEach(row => {
         if (!constellations.some(c => c.id === row.id)) {
-          constellations.push(row);
+          constellations.push(migrateConstellation(row)); 
           latestSeenAt = row.created_at;
           added++;
         }
@@ -653,20 +659,12 @@ async function pollForNew() {
         toast(`✦ ${added} new constellation${added > 1 ? 's' : ''} aligned`); 
       }
     }
-  } catch(e) { console.warn('Polling failure exception handled:', e.message); }
+  } catch(e) { 
+    console.warn('Polling failure exception handled:', e.message); 
+  }
+  
   pollInFlight = false;
   setTimeout(pollForNew, 4000);
-}
-
-let presenceChannel = null;
-function setupPresence(onCountChange) {
-  if (!db) return;
-  presenceChannel = db.channel('sky-presence', { config: { presence: { key: visitorId } } });
-  presenceChannel
-    .on('presence', { event: 'sync' }, () => {
-      if(isMultiplayerMode) onCountChange(Object.keys(presenceChannel.presenceState()).length);
-    })
-    .subscribe(async s => { if (s === 'SUBSCRIBED') await presenceChannel.track({ online_at: new Date().toISOString() }); });
 }
 
 async function connectDatabaseNetworkLayer() {
