@@ -6,11 +6,9 @@
   <title>The Shared Sky</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Cinzel:wght@400;500&display=swap" rel="stylesheet" />
 
-  <script>
-    const SUPABASE_URL = 'https://zaiiyvukmrmioynvinrh.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphaWl5dnVrbXJtaW95bnZpbnJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NjQyODcsImV4cCI6MjA5NDU0MDI4N30.PHKglD5lSepP0b64Ohfl7tJ4IJo80yCJvZs2O8_W1YU';
+  <script type="importmap">
+    { "imports": { "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm" } }
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -93,8 +91,13 @@
 </div>
 <div id="toast"></div>
 
-<script>
+<script type="module">
+import { createClient } from '@supabase/supabase-js';
+
 // ── Config ──
+const SUPABASE_URL = 'https://zaiiyvukmrmioynvinrh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphaWl5dnVrbXJtaW95bnZpbnJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NjQyODcsImV4cCI6MjA5NDU0MDI4N30.PHKglD5lSepP0b64Ohfl7tJ4IJo80yCJvZs2O8_W1YU';
+
 const configured = SUPABASE_URL !== 'https://YOUR_PROJECT.supabase.co';
 if (!configured) {
   const w = document.createElement('div');
@@ -103,7 +106,7 @@ if (!configured) {
   document.body.appendChild(w);
 }
 let db = null;
-if (configured) db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+if (configured) db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ── Canvas ──
 const canvas = document.getElementById('sky');
@@ -133,11 +136,17 @@ const COLORS = ['#7eb8ff','#ffd6a0','#c4b5fd','#86efac','#f9a8d4','#6ee7b7','#fd
 // ── Infinite Tiling Background Stars ──
 const BG_TILE = 2000;
 const BG_PER_TILE = 120;
+const BG_TILE_CACHE_MAX = 256;
 const bgTileCache = new Map();
 
 function getBgTile(tx, ty) {
   const key = `${tx},${ty}`;
-  if (bgTileCache.has(key)) return bgTileCache.get(key);
+  if (bgTileCache.has(key)) {
+    const entry = bgTileCache.get(key);
+    bgTileCache.delete(key);
+    bgTileCache.set(key, entry);
+    return entry;
+  }
   const seed = tx * 73856093 ^ ty * 19349663;
   const stars = Array.from({ length: BG_PER_TILE }, (_, i) => {
     const s1 = Math.sin((seed + i * 127.1)) * 43758.5453;
@@ -153,6 +162,9 @@ function getBgTile(tx, ty) {
       tw: (s5 - Math.floor(s5)) * Math.PI * 2,
     };
   });
+  if (bgTileCache.size >= BG_TILE_CACHE_MAX) {
+    bgTileCache.delete(bgTileCache.keys().next().value);
+  }
   bgTileCache.set(key, stars);
   return stars;
 }
@@ -171,15 +183,16 @@ let shootingStars = [];
 // ── Interaction state ──
 let isPanning = false, panStart = null, camStart = null;
 let lastPinchDist = null;
+let touchStart = null;
 let didPan = false;
-let isDrawingDragLine = false; 
 let currentMousePos = { sx: 0, sy: 0 };
+let dragStartStarIdx = -1; 
 
 // ── Supabase ──
 async function loadAll() {
   if (!db) return [];
   const { data, error } = await db.from('constellations').select('*').order('created_at', { ascending: true });
-  if (error) { console.error('loadAll:', error.message); return []; }
+  if (error) throw new Error(error.message);
   return data || [];
 }
 async function insertOne(record) {
@@ -189,8 +202,17 @@ async function insertOne(record) {
 }
 
 let latestSeenAt = null;
+let pollInFlight = false;
 async function pollForNew() {
-  if (!db) return;
+  if (!db) {
+    setTimeout(pollForNew, 4000);
+    return;
+  }
+  if (pollInFlight) {
+    setTimeout(pollForNew, 4000);
+    return;
+  }
+  pollInFlight = true;
   try {
     let q = db.from('constellations').select('*').order('created_at', { ascending: true });
     if (latestSeenAt) q = q.gt('created_at', latestSeenAt);
@@ -208,14 +230,21 @@ async function pollForNew() {
       if (added > 0) { updateTags(); updateCount(); toast('✦ ' + added + ' new constellation' + (added > 1 ? 's' : '') + ' appeared'); }
     }
   } catch(e) { console.warn('poll:', e.message); }
+  pollInFlight = false;
   setTimeout(pollForNew, 4000);
 }
 
+let presenceChannel = null;
 function setupPresence(onCountChange) {
   if (!db) return;
-  const ch = db.channel('sky-presence', { config: { presence: { key: visitorId } } });
-  ch.on('presence', { event: 'sync' }, () => onCountChange(Object.keys(ch.presenceState()).length))
-    .subscribe(async s => { if (s === 'SUBSCRIBED') await ch.track({ online_at: new Date().toISOString() }); });
+  presenceChannel = db.channel('sky-presence', { config: { presence: { key: visitorId } } });
+  presenceChannel
+    .on('presence', { event: 'sync' }, () => onCountChange(Object.keys(presenceChannel.presenceState()).length))
+    .subscribe(async s => { if (s === 'SUBSCRIBED') await presenceChannel.track({ online_at: new Date().toISOString() }); });
+
+  window.addEventListener('beforeunload', () => {
+    if (presenceChannel) presenceChannel.unsubscribe();
+  });
 }
 
 // ── Draw helpers ──
@@ -253,11 +282,10 @@ function spawnShootingStar() {
   });
 }
 
-// Custom coordinate translation for cross-system mapping under CSS transformation overrides
 function translateClientPos(sx, sy) {
   const isForcedLandscape = window.innerWidth <= 768 && window.innerHeight > window.innerWidth;
   if (isForcedLandscape) {
-    return { sx: sy, sy: window.innerHeight - sx };
+    return { sx: sy, sy: window.innerWidth - sx };
   }
   return { sx, sy };
 }
@@ -332,8 +360,11 @@ function render() {
     ctx.strokeStyle = c.color + '50';
     ctx.lineWidth = 0.8;
     lines.forEach(([a, b]) => {
-      const sa = stars[a], sb = stars[b]; if (!sa || !sb) return;
-      const pa = worldToScreen(sa.x, sa.y), pb = worldToScreen(sb.x, sb.y);
+      const sa = stars[a];
+      const sb = stars[b];
+      if (!sa || !sb) return;
+      const pa = worldToScreen(sa.x, sa.y);
+      const pb = worldToScreen(sb.x, sb.y);
       ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
     });
     ctx.restore();
@@ -355,8 +386,11 @@ function render() {
   });
 
   myLines.forEach(([a, b]) => {
-    const sa = myStars[a], sb = myStars[b]; if (!sa || !sb) return;
-    const pa = worldToScreen(sa.x, sa.y), pb = worldToScreen(sb.x, sb.y);
+    const sa = myStars[a];
+    const sb = myStars[b];
+    if (!sa || !sb) return;
+    const pa = worldToScreen(sa.x, sa.y);
+    const pb = worldToScreen(sb.x, sb.y);
     ctx.save(); 
     if (drawMode === 'erase') {
       ctx.strokeStyle = '#ff7070'; ctx.lineWidth = 1.2; ctx.globalAlpha = 0.4;
@@ -416,21 +450,17 @@ function render() {
 
 // ── Mode ──
 function setDrawMode(m) {
-  drawMode = m; lineStart = null;
+  drawMode = m; lineStart = null; dragStartStarIdx = -1;
   document.getElementById('btn-star').className = 'tbtn' + (m === 'star' ? ' active' : '');
   document.getElementById('btn-line').className = 'tbtn' + (m === 'line' ? ' active' : '');
   document.getElementById('btn-erase').className = 'tbtn' + (m === 'erase' ? ' active' : '');
   
-  if (m === 'erase') {
-    canvas.style.cursor = 'cell';
-  } else {
-    canvas.style.cursor = 'crosshair';
-  }
+  canvas.style.cursor = m === 'erase' ? 'cell' : 'crosshair';
 
   document.getElementById('hint').textContent = {
     star: 'click to place a star',
     line: 'click or drag between two stars to connect them',
-    erase: 'click a star or line to remove it (you can only erase things you have not added yet)',
+    erase: 'click a star or line to remove it (you can only erase unsaved stars and lines)',
   }[m];
 }
 
@@ -442,8 +472,8 @@ function clientPos(e) {
   return translateClientPos(cx - r.left, cy - r.top);
 }
 
-function nearestWorldStar(wx, wy, stars, threshWorld = 20) {
-  const thresh = threshWorld / cam.zoom;
+function nearestWorldStar(wx, wy, stars, threshPx = 20) {
+  const thresh = threshPx / cam.zoom;
   let best = -1, bd = Infinity;
   stars.forEach((s, i) => {
     const d = Math.hypot(s.x - wx, s.y - wy);
@@ -496,6 +526,25 @@ function showZoom() {
   zoomBadgeTimer = setTimeout(() => el.style.opacity = '0', 1200);
 }
 
+// ── Mouse & Touchpad Wheel events ──
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const { sx, sy } = clientPos(e);
+  
+  if (e.ctrlKey || e.metaKey) {
+    const factor = Math.exp(-e.deltaY * 0.01);
+    applyZoom(factor, sx, sy);
+  } else {
+    if (e.deltaX === 0) {
+      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      applyZoom(factor, sx, sy);
+    } else {
+      cam.x += e.deltaX / cam.zoom;
+      cam.y += e.deltaY / cam.zoom;
+    }
+  }
+}, { passive: false });
+
 // ── Mouse events ──
 canvas.addEventListener('mousedown', e => {
   if (e.button !== 0 && e.button !== 1) return;
@@ -503,18 +552,16 @@ canvas.addEventListener('mousedown', e => {
   const { x: wx, y: wy } = screenToWorld(sx, sy);
   
   isPanning = true;
-  isDrawingDragLine = false;
   panStart = { sx, sy };
   camStart = { x: cam.x, y: cam.y };
   didPan = false;
+  dragStartStarIdx = -1;
 
   if (drawMode === 'line') {
     const hit = nearestWorldStar(wx, wy, myStars);
     if (hit !== -1) {
-      if (lineStart === null) {
-        lineStart = hit;
-      }
-      isDrawingDragLine = true;
+      isPanning = false; 
+      dragStartStarIdx = hit;
     }
   }
 });
@@ -524,19 +571,21 @@ canvas.addEventListener('mousemove', e => {
   currentMousePos = { sx, sy };
   const { x: wx, y: wy } = screenToWorld(sx, sy);
 
-  if (isPanning && panStart) {
+  if (panStart) {
     if (Math.abs(sx - panStart.sx) > 4 || Math.abs(sy - panStart.sy) > 4) {
       didPan = true;
-      if (!isDrawingDragLine && e.buttons === 1) {
-        canvas.style.cursor = 'move';
+      
+      if (drawMode === 'line' && dragStartStarIdx !== -1 && lineStart === null) {
+        lineStart = dragStartStarIdx;
       }
     }
-    
-    if (!isDrawingDragLine) {
+
+    if (isPanning) {
       const dx = (sx - panStart.sx) / cam.zoom;
       const dy = (sy - panStart.sy) / cam.zoom;
       cam.x = camStart.x - dx;
       cam.y = camStart.y - dy;
+      canvas.style.cursor = 'move';
       return;
     }
   }
@@ -552,64 +601,55 @@ canvas.addEventListener('mouseup', e => {
 
   if (drawMode === 'line') {
     const hit = nearestWorldStar(wx, wy, myStars);
-    
-    if (isDrawingDragLine && didPan) {
-      if (hit !== -1 && lineStart !== null && lineStart !== hit) {
-        const dup = myLines.some(([a, b]) => (a === lineStart && b === hit) || (a === hit && b === lineStart));
-        if (!dup) myLines.push([lineStart, hit]);
+
+    if (didPan) {
+      if (dragStartStarIdx !== -1 && hit !== -1 && dragStartStarIdx !== hit) {
+        const dup = myLines.some(([a, b]) => (a === dragStartStarIdx && b === hit) || (a === hit && b === dragStartStarIdx));
+        if (!dup) myLines.push([dragStartStarIdx, hit]);
       }
-      lineStart = null;
-      isPanning = false;
-      isDrawingDragLine = false;
-      return;
-    } else if (!didPan) {
+      lineStart = null; 
+    } else {
       if (hit !== -1) {
-        if (isDrawingDragLine && lineStart !== null && lineStart !== hit) {
+        if (lineStart === null) {
+          lineStart = hit;
+        } else if (lineStart === hit) {
+          lineStart = null;
+        } else {
           const dup = myLines.some(([a, b]) => (a === lineStart && b === hit) || (a === hit && b === lineStart));
           if (!dup) myLines.push([lineStart, hit]);
           lineStart = null;
-        } else {
-          lineStart = hit;
         }
       } else {
         lineStart = null;
       }
-      isPanning = false;
-      isDrawingDragLine = false;
-      return;
     }
+
+    isPanning = false;
+    panStart = null;
+    dragStartStarIdx = -1;
+    return;
   }
 
-  if (isPanning) {
+  if (isPanning && didPan) {
     isPanning = false;
-    if (didPan) return; 
+    panStart = null;
+    return; 
   }
   
+  isPanning = false;
+  panStart = null;
   handlePlace(sx, sy);
 });
 
-canvas.addEventListener('mouseleave', () => { 
-  isPanning = false; 
-  isDrawingDragLine = false; 
-  lineStart = null; 
-  hoveredStar = null; 
-  canvas.style.cursor = drawMode === 'erase' ? 'cell' : 'crosshair'; 
+canvas.addEventListener('mouseleave', () => {
+  isPanning = false;
+  panStart = null;
+  hoveredStar = null;
+  dragStartStarIdx = -1;
+  canvas.style.cursor = drawMode === 'erase' ? 'cell' : 'crosshair';
 });
 
-canvas.addEventListener('wheel', e => {
-  e.preventDefault();
-  const { sx, sy } = clientPos(e);
-  if (e.ctrlKey || e.metaKey) {
-    cam.x += e.deltaX / cam.zoom;
-    cam.y += e.deltaY / cam.zoom;
-  } else {
-    const factor = e.deltaY < 0 ? 1.1 : 0.9;
-    applyZoom(factor, sx, sy);
-  }
-}, { passive: false });
-
 // ── Touch events ──
-let touchStart = null;
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
   if (e.touches.length === 2) {
@@ -618,7 +658,6 @@ canvas.addEventListener('touchstart', e => {
       e.touches[0].clientY - e.touches[1].clientY
     );
     isPanning = false;
-    isDrawingDragLine = false;
   } else if (e.touches.length === 1) {
     const { sx, sy } = clientPos(e);
     currentMousePos = { sx, sy };
@@ -626,14 +665,15 @@ canvas.addEventListener('touchstart', e => {
 
     isPanning = true;
     didPan = false;
-    isDrawingDragLine = false;
+    dragStartStarIdx = -1;
     touchStart = { sx, sy, camX: cam.x, camY: cam.y, t: Date.now() };
+    panStart = { sx, sy };
 
     if (drawMode === 'line') {
       const hit = nearestWorldStar(wx, wy, myStars);
       if (hit !== -1) {
-        if (lineStart === null) lineStart = hit;
-        isDrawingDragLine = true;
+        isPanning = false;
+        dragStartStarIdx = hit;
       }
     }
   }
@@ -655,15 +695,12 @@ canvas.addEventListener('touchmove', e => {
   } else if (e.touches.length === 1 && touchStart) {
     const { sx, sy } = clientPos(e);
     currentMousePos = { sx, sy };
-    const { x: wx, y: wy } = screenToWorld(sx, sy);
 
     if (Math.abs(sx - touchStart.sx) > 5 || Math.abs(sy - touchStart.sy) > 5) {
       didPan = true;
-    }
-
-    if (isDrawingDragLine) {
-      hoveredStar = nearestWorldStar(wx, wy, myStars);
-      return;
+      if (drawMode === 'line' && dragStartStarIdx !== -1 && lineStart === null) {
+        lineStart = dragStartStarIdx;
+      }
     }
 
     if (isPanning) {
@@ -671,6 +708,9 @@ canvas.addEventListener('touchmove', e => {
       const dy = (sy - touchStart.sy) / cam.zoom;
       cam.x = touchStart.camX - dx;
       cam.y = touchStart.camY - dy;
+    } else if (drawMode === 'line') {
+      const { x: wx, y: wy } = screenToWorld(sx, sy);
+      hoveredStar = nearestWorldStar(wx, wy, myStars);
     }
   }
 }, { passive: false });
@@ -679,46 +719,56 @@ canvas.addEventListener('touchend', e => {
   e.preventDefault();
   lastPinchDist = null;
 
-  if (drawMode === 'line' && touchStart) {
-    const boundingBox = canvas.getBoundingClientRect();
-    const endX = e.changedTouches[0].clientX - boundingBox.left;
-    const endY = e.changedTouches[0].clientY - boundingBox.top;
-    const { sx, sy } = translateClientPos(endX, endY);
-    const { x: wx, y: wy } = screenToWorld(sx, sy);
+  if (!touchStart) return;
+
+  const boundingBox = canvas.getBoundingClientRect();
+  const endX = e.changedTouches[0].clientX - boundingBox.left;
+  const endY = e.changedTouches[0].clientY - boundingBox.top;
+  const { sx, sy } = translateClientPos(endX, endY);
+  const { x: wx, y: wy } = screenToWorld(sx, sy);
+
+  if (drawMode === 'line') {
     const hit = nearestWorldStar(wx, wy, myStars);
 
-    if (isDrawingDragLine && didPan) {
-      if (hit !== -1 && lineStart !== null && lineStart !== hit) {
-        const dup = myLines.some(([a, b]) => (a === lineStart && b === hit) || (a === hit && b === lineStart));
-        if (!dup) myLines.push([lineStart, hit]);
+    if (didPan) {
+      if (dragStartStarIdx !== -1 && hit !== -1 && dragStartStarIdx !== hit) {
+        const dup = myLines.some(([a, b]) => (a === dragStartStarIdx && b === hit) || (a === hit && b === dragStartStarIdx));
+        if (!dup) myLines.push([dragStartStarIdx, hit]);
       }
       lineStart = null;
-    } else if (!didPan) {
+    } else {
       if (hit !== -1) {
-        if (isDrawingDragLine && lineStart !== null && lineStart !== hit) {
+        if (lineStart === null) {
+          lineStart = hit;
+        } else if (lineStart === hit) {
+          lineStart = null;
+        } else {
           const dup = myLines.some(([a, b]) => (a === lineStart && b === hit) || (a === hit && b === lineStart));
           if (!dup) myLines.push([lineStart, hit]);
           lineStart = null;
-        } else {
-          lineStart = hit;
         }
       } else {
         lineStart = null;
       }
     }
-    isDrawingDragLine = false;
+
     isPanning = false;
     touchStart = null;
+    panStart = null;
+    dragStartStarIdx = -1;
     didPan = false;
     return;
   }
 
-  if (!didPan && touchStart && Date.now() - touchStart.t < 300) {
-    handlePlace(touchStart.sx, touchStart.sy);
+  if (!didPan && Date.now() - touchStart.t < 300) {
+    handlePlace(sx, sy);
   }
+
   touchStart = null;
+  panStart = null;
   isPanning = false;
   didPan = false;
+  dragStartStarIdx = -1;
 }, { passive: false });
 
 // ── Interaction Logic ──
@@ -726,7 +776,7 @@ function handlePlace(sx, sy) {
   const { x: wx, y: wy } = screenToWorld(sx, sy);
   
   if (drawMode === 'star') {
-    const existing = nearestWorldStar(wx, wy, myStars);
+    const existing = nearestWorldStar(wx, wy, myStars, 20);
     if (existing === -1) {
       myStars.push({ x: wx, y: wy, r: 2.5 + Math.random() * 1.5 });
       updateCount();
@@ -747,7 +797,8 @@ function handlePlace(sx, sy) {
       return;
     }
     
-    const lineThresh = 12 / cam.zoom; 
+    const lineThreshPx = 12;
+    const lineThresh = lineThreshPx / cam.zoom;
     let lineIdxToRemove = -1;
     let bestLineDist = Infinity;
     
@@ -792,7 +843,7 @@ async function saveConstellation() {
       const constellationsObj = JSON.parse(JSON.stringify(record));
       constellations.push(constellationsObj); updateTags(); updateCount();
     }
-    myStars = []; myLines = []; lineStart = null;
+    myStars = []; myLines = []; lineStart = null; dragStartStarIdx = -1;
     document.getElementById('ni').value = '';
     toast('"' + name + '" is now in the shared sky');
   } catch(e) { toast('save failed — check console'); console.error(e); }
@@ -801,11 +852,11 @@ async function saveConstellation() {
 }
 
 function clearCurrent() { 
-  if (myStars.length === 0) {
-    toast('no stars to clear');
+  if (myStars.length === 0 && myLines.length === 0) {
+    toast('nothing to clear');
     return;
   }
-  myStars = []; myLines = []; lineStart = null; updateCount(); 
+  myStars = []; myLines = []; lineStart = null; dragStartStarIdx = -1; updateCount(); 
 }
 
 // ── UI ──
@@ -861,26 +912,45 @@ function migrateConstellation(c) {
 }
 
 // ── Init ──
+window.setDrawMode = setDrawMode;
+window.saveConstellation = saveConstellation;
+window.clearCurrent = clearCurrent;
+
+async function loadAllWithRetry(maxAttempts = 3, delayMs = 1500) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const raw = await loadAll();
+      return raw;
+    } catch (e) {
+      console.warn(`loadAll attempt ${attempt} failed:`, e.message);
+      if (attempt < maxAttempts) await new Promise(r => setTimeout(r, delayMs * attempt));
+    }
+  }
+  console.error('loadAll failed after', maxAttempts, 'attempts — starting with empty sky');
+  return [];
+}
+
 async function init() {
   resize();
-  if (db) {
-    showSyncing(true);
-    const raw = await loadAll();
-    constellations = raw.map(migrateConstellation);
-    if (constellations.length > 0) latestSeenAt = constellations[constellations.length - 1].created_at;
-    showSyncing(false);
-    pollForNew();
-    setupPresence(updateOnlineCount);
-  }
-  
+  updateTags(); updateCount();
+  render();
+
   if (screen.orientation && screen.orientation.lock) {
     canvas.addEventListener('click', () => {
       screen.orientation.lock('landscape').catch(() => {});
     }, { once: true });
   }
 
-  updateTags(); updateCount();
-  render();
+  if (db) {
+    showSyncing(true);
+    const raw = await loadAllWithRetry();
+    constellations = raw.map(migrateConstellation);
+    if (constellations.length > 0) latestSeenAt = constellations[constellations.length - 1].created_at;
+    showSyncing(false);
+    updateTags(); updateCount();
+    pollForNew();
+    setupPresence(updateOnlineCount);
+  }
 }
 
 init();
