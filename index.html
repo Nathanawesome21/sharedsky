@@ -790,7 +790,7 @@ async function saveConstellation() {
       updateTags(); updateCount();
     } else {
       const constellationsObj = JSON.parse(JSON.stringify(record));
-      const constellations.push(constellationsObj); updateTags(); updateCount();
+      constellations.push(constellationsObj); updateTags(); updateCount();
     }
     myStars = []; myLines = []; lineStart = null;
     document.getElementById('ni').value = '';
