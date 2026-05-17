@@ -1403,17 +1403,13 @@ document.getElementById('menu-enter-mp').onclick = () => {
 };
 
 document.getElementById('btn-exit-canvas').onclick = () => {
-  if(!isMultiplayerMode && hasUnsavedChanges) {
-    const doSave = confirm("You have unsaved changes! Click OK to Save and Exit, or Cancel to return to the canvas.");
-    if(doSave) {
+  if (!isMultiplayerMode && hasUnsavedChanges) {
+    const doSave = confirm("You have unsaved changes! Click OK to Save and Exit, or Cancel to exit without saving.");
+    if (doSave) {
       saveHorizonToLocalStorage(currentActiveSkyName);
-      terminateSystemHorizonView();
-    } else {
-      return; 
     }
-  } else {
-    terminateSystemHorizonView();
   }
+  terminateSystemHorizonView();
 };
 
 document.getElementById('menu-open-ach').onclick = () => {
