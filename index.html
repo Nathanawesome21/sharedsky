@@ -18,7 +18,6 @@
     }
     html, body { height: 100%; background: var(--sky); color: var(--ink); font-family: 'Cormorant Garamond', Georgia, serif; overflow: hidden; }
 
-    /* ── Main Menu System ── */
     #screen-menu { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #06060f; z-index: 100; }
     #menu-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
     .menu-wrap { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; }
@@ -31,7 +30,6 @@
     .menu-btn.mp:hover { background: rgba(126,184,255,0.08); border-color: #7eb8ff; box-shadow: 0 0 24px rgba(126,184,255,0.2); }
     .menu-credit { position: absolute; bottom: 18px; right: 22px; font-size: 11px; color: var(--ink-faint); letter-spacing: 0.06em; font-family: 'Cinzel', serif; }
 
-    /* ── Window Overlays ── */
     .overlay { position: absolute; inset: 0; background: rgba(6,6,15,0.92); backdrop-filter: blur(8px); z-index: 200; display: none; align-items: center; justify-content: center; }
     .overlay.open { display: flex; }
     .overlay-box { background: #0d0d1a; border: 0.5px solid var(--border); border-radius: 16px; padding: 32px 36px; max-width: 500px; width: 92%; position: relative; max-height: 85vh; overflow-y: auto; }
@@ -40,7 +38,6 @@
     .overlay-close { position: absolute; top: 16px; right: 18px; background: none; border: none; color: var(--ink-dim); font-size: 18px; cursor: pointer; transition: color 0.2s; }
     .overlay-close:hover { color: var(--ink); }
 
-    /* ── Load Game Dashboard UI ── */
     #save-list { list-style: none; margin-bottom: 15px; max-height: 45vh; overflow-y: auto; }
     .save-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border: 0.5px solid var(--border); border-radius: 8px; margin-bottom: 8px; gap: 10px; background: rgba(232,224,213,0.02); }
     .save-item:hover { background: rgba(232,224,213,0.05); }
@@ -56,7 +53,6 @@
     .io-btn { flex: 1; padding: 10px; border-radius: 30px; background: transparent; border: 0.5px solid rgba(232,224,213,0.3); color: var(--ink); font-family: 'Cinzel', serif; font-size: 11px; cursor: pointer; letter-spacing: 0.05em; transition: all 0.2s; }
     .io-btn:hover { border-color: var(--ink); background: rgba(232,224,213,0.05); }
 
-    /* ── Achievements Dashboard ── */
     #ach-progress { font-family: 'Cinzel', serif; font-size: 11px; color: var(--gold); margin-bottom: 16px; letter-spacing: 0.06em; opacity: 0.8; }
     #ach-list { max-height: 55vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
     .ach-section { font-family: 'Cinzel', serif; font-size: 11px; color: var(--gold); opacity: 0.5; letter-spacing: 0.14em; text-transform: uppercase; margin: 12px 0 4px; padding-bottom: 4px; border-bottom: 0.5px solid var(--border); }
@@ -72,13 +68,11 @@
     #ach-toast .t-title { font-family: 'Cinzel', serif; font-size: 11px; color: var(--gold); text-transform: uppercase; letter-spacing: 0.08em; }
     #ach-toast .t-name { font-family: 'Cinzel', serif; font-size: 13px; color: var(--ink); }
 
-    /* ── Stats Dashboard ── */
     .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 0.5px solid var(--border); font-size: 14px; }
     .stat-row:last-child { border-bottom: none; }
     .stat-label { color: var(--ink-dim); }
     .stat-value { font-family: 'Cinzel', serif; font-size: 13px; color: var(--ink); }
 
-    /* ── Main Canvas View UI ── */
     #header { position: fixed; top: 0; left: 0; right: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; padding: 14px 22px; border-bottom: 0.5px solid var(--border); background: rgba(6,6,15,0.85); backdrop-filter: blur(12px); display: none; }
     #header h1 { font-family: 'Cinzel', serif; font-size: 16px; font-weight: 400; letter-spacing: 0.12em; color: var(--gold); }
     #header-right { display: flex; align-items: center; gap: 18px; }
@@ -107,7 +101,6 @@
     #syncing { position: fixed; top: 62px; left: 50%; transform: translateX(-50%); font-size: 11px; font-style: italic; color: rgba(201,168,76,0.6); pointer-events: none; letter-spacing: 0.06em; opacity: 0; transition: opacity 0.3s; }
     #config-warn { position: fixed; top: 55px; left: 0; right: 0; z-index: 20; background: rgba(180,120,0,0.18); border-bottom: 0.5px solid rgba(201,168,76,0.3); padding: 8px 20px; font-size: 12px; font-style: italic; color: var(--gold); text-align: center; letter-spacing: 0.04em; }
 
-    /* ── Mobile Landscape Force Fix ── */
     @media screen and (max-width: 768px) and (orientation: portrait) {
       body { transform: rotate(-90deg); transform-origin: left top; width: 100vh; height: 100vw; position: absolute; top: 100%; left: 0; }
       #header, #toolbar, #toast, #syncing, #badge, #zoom-badge { box-sizing: border-box; }
@@ -198,7 +191,6 @@
 <script type="module">
 import { createClient } from '@supabase/supabase-js';
 
-// ── Configuration Hooks ──
 const SUPABASE_URL = 'https://zaiiyvukmrmioynvinrh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphaWl5dnVrbXJtaW95bnZpbnJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NjQyODcsImV4cCI6MjA5NDU0MDI4N30.PHKglD5lSepP0b64Ohfl7tJ4IJo80yCJvZs2O8_W1YU';
 
@@ -212,7 +204,6 @@ if (!configured) {
 let db = null;
 if (configured) db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ── Application Modes & Identity Matrix ──
 let isMultiplayerMode = false;
 let hasUnsavedChanges = false; 
 let currentActiveSkyId = null; 
@@ -221,7 +212,6 @@ const LOCAL_STORAGE_SAVEDB_KEY = 'sharedsky_local_horizons';
 const ACHIEVEMENT_STORAGE_KEY = 'sharedsky_unlocked_milestones';
 const SYSTEM_ANALYTICS_KEY = 'sharedsky_system_telemetry';
 
-// ── UI View Toggle Nodes ──
 const uiElements = {
   menu: document.getElementById('screen-menu'),
   header: document.getElementById('header'),
@@ -230,18 +220,15 @@ const uiElements = {
   toolbar: document.getElementById('toolbar')
 };
 
-// ── Canvas Framework ──
 const canvas = document.getElementById('sky');
 const ctx = canvas.getContext('2d');
 let W, H;
 
-// ── Menu Starfield Animation Nodes ──
 const menuCanvas = document.getElementById('menu-canvas');
 const mctx = menuCanvas.getContext('2d');
 let menuStars = [];
 let isMenuLoopRunning = true;
 
-// ── Camera (world space vector mapping) ──
 const cam = { x: 0, y: 0, zoom: 1 };
 const MIN_ZOOM = 0.08, MAX_ZOOM = 8;
 
@@ -258,10 +245,8 @@ function screenToWorld(sx, sy) {
   };
 }
 
-// ── Palette Matrix ──
 const COLORS = ['#7eb8ff','#ffd6a0','#c4b5fd','#86efac','#f9a8d4','#6ee7b7','#fde68a','#a5f3fc'];
 
-// ── Achievement / Milestone Architecture definitions ──
 const MILESTONE_REGISTRY = [
   { id: 'first_star', name: 'Spark of Creation', desc: 'Anchor your first lone star inside a blank dark canvas space.' },
   { id: 'star_cluster', name: 'Stellar Nursery', desc: 'Place 10 stars across the cosmos.' },
@@ -281,7 +266,6 @@ const MILESTONE_REGISTRY = [
   { id: 'data_reception', name: 'Signal Received', desc: 'Import a sky map from a local JSON file.' }
 ];
 
-// ── Infinite Tiling Background Stars Engine ──
 const BG_TILE = 2000;
 const BG_PER_TILE = 120;
 const BG_TILE_CACHE_MAX = 256;
@@ -317,7 +301,6 @@ function getBgTile(tx, ty) {
   return stars;
 }
 
-// ── Core Engine State ──
 let tick = 0, toastTimer, zoomBadgeTimer;
 let drawMode = 'star';
 let myStars = [], myLines = [], lineStart = null;
@@ -325,10 +308,8 @@ let hoveredStar = null;
 let saving = false, constellations = [];
 const visitorId = Math.random().toString(36).slice(2);
 
-// ── Shooting Stars State ──
 let shootingStars = [];
 
-// ── Interaction Vectors ──
 let isPanning = false, panStart = null, camStart = null;
 let lastPinchDist = null;
 let touchStart = null;
@@ -336,11 +317,10 @@ let didPan = false;
 let currentMousePos = { sx: 0, sy: 0 };
 let dragStartStarIdx = -1; 
 
-// ── Analytics / Metric Registries ──
 let analyticsRegistry = {
   sessionStarsPlaced: 0,
   sessionLinesDrawn: 0,
-  historicalTotalLinesDrawn: 0, // NEW: Historical line tracking
+  historicalTotalLinesDrawn: 0,
   totalSavesExecuted: 0,
   historicalTotalStarsPlaced: 0
 };
@@ -367,8 +347,7 @@ function updateSystemAnalytics() {
   } catch(e) { console.error("Metrics synchronization exception:", e); }
 }
 
-// ── Achievement Processing Engine ──
-const unlockedSessionCache = new Set(); // Prevent local storage spam during rapid events
+const unlockedSessionCache = new Set();
 
 function triggerMilestoneUnlock(id) {
   if (unlockedSessionCache.has(id)) return;
@@ -390,20 +369,17 @@ function triggerMilestoneUnlock(id) {
         setTimeout(() => { toastNode.classList.remove('show'); }, 4000);
       }
     } else {
-      // It's already unlocked in DB, just cache it so we don't query DB again
       unlockedSessionCache.add(id);
     }
   } catch(e) { console.error("Milestone tracking pipeline fail:", e); }
 }
 
-// ── UI Modal Window Drivers ──
 function toggleOverlay(id, open = true) {
   const panel = document.getElementById(`overlay-${id}`);
   if(open) panel.classList.add('open');
   else panel.classList.remove('open');
 }
 
-// ── Local Database Save/Load Orchestration Engine ──
 function getLocalSaves() {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_SAVEDB_KEY);
@@ -524,7 +500,6 @@ function triggerSystemJSONExport() {
   } catch(e) { console.error("Export fault:", e); }
 }
 
-// ── Menu Starfield Background Renderer ──
 function constructMenuStarfield() {
   menuCanvas.width = window.innerWidth;
   menuCanvas.height = window.innerHeight;
@@ -557,7 +532,6 @@ function processMenuStarfieldLoop() {
   requestAnimationFrame(processMenuStarfieldLoop);
 }
 
-// ── Global App State Transition Managers ──
 function launchSystemHorizonView(multiplayer = false) {
   isMenuLoopRunning = false;
   isMultiplayerMode = multiplayer;
@@ -614,7 +588,6 @@ function terminateSystemHorizonView() {
   processMenuStarfieldLoop();
 }
 
-// ── Database Realtime Synchronization Pipelines (Multiplayer Layer Only) ──
 async function loadAll() {
   if (!db) return [];
   
@@ -720,7 +693,6 @@ function disconnectDatabaseNetworkLayer() {
   latestSeenAt = null;
 }
 
-// ── Vector Drawing Utilities ──
 function drawStarShape(wx, wy, r, color, alpha, glow) {
   const { x, y } = worldToScreen(wx, wy);
   const sr = r * cam.zoom;
@@ -733,7 +705,6 @@ function drawStarShape(wx, wy, r, color, alpha, glow) {
   ctx.restore();
 }
 
-// ── Kinetic Meteor Trajectory Driver ──
 function spawnShootingStar() {
   const topLeft = screenToWorld(0, 0);
   const bottomRight = screenToWorld(W, H);
@@ -790,7 +761,6 @@ function updateAndDrawShootingStars() {
   });
 }
 
-// ── Main Frame Rendering Execution ──
 function render() {
   if (isMenuLoopRunning) return;
   ctx.clearRect(0, 0, W, H);
@@ -916,7 +886,6 @@ function render() {
   requestAnimationFrame(render);
 }
 
-// ── Brush Operational Tool Selection ──
 function setDrawMode(m) {
   drawMode = m; lineStart = null; dragStartStarIdx = -1;
   document.getElementById('btn-star').className = 'tbtn' + (m === 'star' ? ' active' : '');
@@ -932,7 +901,6 @@ function setDrawMode(m) {
   }[m];
 }
 
-// ── Coordinate Normalization Engines ──
 function clientPos(e) {
   const r = canvas.getBoundingClientRect();
   const cx = e.touches ? e.touches[0].clientX : e.clientX;
@@ -974,7 +942,6 @@ function getLineDistance(wx, wy, p1, p2) {
   return Math.hypot(wx - xx, wy - yy);
 }
 
-// ── Dynamic Zoom Multiplier ──
 function applyZoom(factor, pivotSx, pivotSy) {
   const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, cam.zoom * factor));
   if (newZoom === cam.zoom) return;
@@ -1004,7 +971,6 @@ function recordLineConnection() {
   if (analyticsRegistry.historicalTotalLinesDrawn >= 50) triggerMilestoneUnlock('weaver_of_light');
 }
 
-// ── Input Layer Event Subscriptions (Preserves Mouse Wheel Fixed Controls) ──
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
   const { sx, sy } = clientPos(e);
@@ -1115,7 +1081,6 @@ canvas.addEventListener('mouseleave', () => {
   canvas.style.cursor = drawMode === 'erase' ? 'cell' : 'crosshair';
 });
 
-// ── Mobile Touch Interfaces ──
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
   if (e.touches.length === 2) {
@@ -1228,7 +1193,6 @@ canvas.addEventListener('touchend', e => {
   touchStart = null; panStart = null; isPanning = false; didPan = false; dragStartStarIdx = -1;
 }, { passive: false });
 
-// ── Workspace Coordinate Plotting Logic ──
 function handlePlace(sx, sy) {
   const { x: wx, y: wy } = screenToWorld(sx, sy);
   
@@ -1288,7 +1252,6 @@ function handlePlace(sx, sy) {
   }
 }
 
-// ── Serialization & Upload Sequence ──
 async function saveConstellation() {
   if (myStars.length === 0) { toast('place some stars first'); return; }
   
@@ -1299,9 +1262,7 @@ async function saveConstellation() {
   saving = true;
 
   const color = COLORS[constellations.length % COLORS.length];
-  const record = { id: Date.now().toString(), name, color, stars: myStars, lines: myLines, canvas_w: 0, canvas_h: 0 };
-
-  // Singleplayer Logic
+  const record = { id: crypto.randomUUID(), name, color, stars: myStars, lines: myLines, canvas_w: 0, canvas_h: 0 };
   if(!isMultiplayerMode) {
     constellations.push(record);
     myStars = []; myLines = []; lineStart = null; dragStartStarIdx = -1;
@@ -1316,7 +1277,6 @@ async function saveConstellation() {
     return;
   }
   
-  // Multiplayer Logic
   showSyncing(true);
   try {
     if (db) {
@@ -1351,7 +1311,6 @@ function clearCurrent() {
   }
 }
 
-// ── UI Data Synchronizers ──
 function showSyncing(on) { document.getElementById('syncing').style.opacity = on ? '1' : '0'; }
 
 function updateCount() {
@@ -1394,7 +1353,6 @@ function migrateConstellation(c) {
   };
 }
 
-// ── Interactive Module Subscriptions ──
 document.getElementById('menu-new-sky').onclick = () => {
   const inputName = prompt("Name your sky:", "Custom Sky");
   if (inputName === null) return; 
@@ -1446,7 +1404,6 @@ document.getElementById('menu-enter-mp').onclick = () => {
   launchSystemHorizonView(true);
 };
 
-// ── Master Exit Handler ──
 document.getElementById('btn-exit-canvas').onclick = () => {
   if(!isMultiplayerMode && hasUnsavedChanges) {
     const doSave = confirm("You have unsaved changes! Click OK to Save and Exit, or Cancel to return to the canvas.");
@@ -1499,12 +1456,10 @@ document.getElementById('menu-open-stats').onclick = () => {
   toggleOverlay('stats', true);
 };
 
-// Overlay closing event handles
 document.getElementById('close-load').onclick = () => toggleOverlay('load', false);
 document.getElementById('close-ach').onclick = () => toggleOverlay('achievements', false);
 document.getElementById('close-stats').onclick = () => toggleOverlay('stats', false);
 
-// ── Application Initialization ──
 window.setDrawMode = setDrawMode;
 window.saveConstellation = saveConstellation;
 window.clearCurrent = clearCurrent;
@@ -1514,7 +1469,6 @@ window.forceSaveSky = saveHorizonToLocalStorage;
 function init() {
   resize();
   
-  // Pre-load cached achievements to prevent localized IO stutter
   try {
     const store = localStorage.getItem(ACHIEVEMENT_STORAGE_KEY);
     if (store) JSON.parse(store).forEach(id => unlockedSessionCache.add(id));
