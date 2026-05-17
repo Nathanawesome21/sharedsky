@@ -214,7 +214,7 @@ if (configured) db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ── Application Modes & Identity Matrix ──
 let isMultiplayerMode = false;
-let hasUnsavedChanges = false; // Master tracking flag for unsaved progress
+let hasUnsavedChanges = false; 
 let currentActiveSkyId = null; 
 let currentActiveSkyName = "Local Sky Base";
 const LOCAL_STORAGE_SAVEDB_KEY = 'sharedsky_local_horizons';
@@ -264,10 +264,21 @@ const COLORS = ['#7eb8ff','#ffd6a0','#c4b5fd','#86efac','#f9a8d4','#6ee7b7','#fd
 // ── Achievement / Milestone Architecture definitions ──
 const MILESTONE_REGISTRY = [
   { id: 'first_star', name: 'Spark of Creation', desc: 'Anchor your first lone star inside a blank dark canvas space.' },
+  { id: 'star_cluster', name: 'Stellar Nursery', desc: 'Place 10 stars across the cosmos.' },
+  { id: 'galaxy_builder', name: 'Galaxy Builder', desc: 'Place 100 stars across the cosmos.' },
+  { id: 'cosmic_architect', name: 'Cosmic Architect', desc: 'Place 500 stars across the cosmos.' },
+  { id: 'deep_space_connection', name: 'Entangled Vectors', desc: 'Establish an engineered line connection linking two individual cosmic nodes together.' },
+  { id: 'network_init', name: 'Web of Light', desc: 'Connect 10 lines between stars.' },
+  { id: 'weaver_of_light', name: 'Weaver of Constellations', desc: 'Connect 50 lines between stars.' },
   { id: 'constellation_add', name: 'Celestial Cartographer', desc: 'Group a drawn layout structure into a persistent named constellation cluster.' },
   { id: 'horizon_saved', name: 'Quantum Archival', desc: 'Commit your active celestial coordinate framework into local persistent browser storage.' },
   { id: 'multiplayer_voyage', name: 'Shared Horizon Convergence', desc: 'Sync your client terminal into the cross-platform global multiplayer instance.' },
-  { id: 'deep_space_connection', name: 'Entangled Vectors', desc: 'Establish an engineered line connection linking two individual cosmic nodes together.' }
+  { id: 'telescope_focus', name: 'Telescope Calibration', desc: 'Zoom in or out to inspect the cosmic expanse.' },
+  { id: 'space_explorer', name: 'Drifting Through the Void', desc: 'Pan the camera to explore uncharted territory.' },
+  { id: 'stellar_collapse', name: 'Supernova', desc: 'Erase a star from the canvas.' },
+  { id: 'void_state', name: 'Entropy', desc: 'Clear your current unsaved progress, returning to the void.' },
+  { id: 'data_transmission', name: 'Data Transmission', desc: 'Export your sky map to a local JSON file.' },
+  { id: 'data_reception', name: 'Signal Received', desc: 'Import a sky map from a local JSON file.' }
 ];
 
 // ── Infinite Tiling Background Stars Engine ──
@@ -329,6 +340,7 @@ let dragStartStarIdx = -1;
 let analyticsRegistry = {
   sessionStarsPlaced: 0,
   sessionLinesDrawn: 0,
+  historicalTotalLinesDrawn: 0, // NEW: Historical line tracking
   totalSavesExecuted: 0,
   historicalTotalStarsPlaced: 0
 };
@@ -339,6 +351,7 @@ function loadSystemAnalytics() {
     if(data) {
       const parsed = JSON.parse(data);
       analyticsRegistry.historicalTotalStarsPlaced = parsed.historicalTotalStarsPlaced || 0;
+      analyticsRegistry.historicalTotalLinesDrawn = parsed.historicalTotalLinesDrawn || 0; // NEW
       analyticsRegistry.totalSavesExecuted = parsed.totalSavesExecuted || 0;
     }
   } catch(e) { console.error("Metrics load fault:", e); }
@@ -348,13 +361,17 @@ function updateSystemAnalytics() {
   try {
     localStorage.setItem(SYSTEM_ANALYTICS_KEY, JSON.stringify({
       historicalTotalStarsPlaced: analyticsRegistry.historicalTotalStarsPlaced,
+      historicalTotalLinesDrawn: analyticsRegistry.historicalTotalLinesDrawn, // NEW
       totalSavesExecuted: analyticsRegistry.totalSavesExecuted
     }));
   } catch(e) { console.error("Metrics synchronization exception:", e); }
 }
 
 // ── Achievement Processing Engine ──
+const unlockedSessionCache = new Set(); // Prevent local storage spam during rapid events
+
 function triggerMilestoneUnlock(id) {
+  if (unlockedSessionCache.has(id)) return;
   try {
     let unlocked = [];
     const store = localStorage.getItem(ACHIEVEMENT_STORAGE_KEY);
@@ -363,6 +380,7 @@ function triggerMilestoneUnlock(id) {
     if(!unlocked.includes(id)) {
       unlocked.push(id);
       localStorage.setItem(ACHIEVEMENT_STORAGE_KEY, JSON.stringify(unlocked));
+      unlockedSessionCache.add(id);
       
       const target = MILESTONE_REGISTRY.find(m => m.id === id);
       if(target) {
@@ -371,6 +389,9 @@ function triggerMilestoneUnlock(id) {
         toastNode.classList.add('show');
         setTimeout(() => { toastNode.classList.remove('show'); }, 4000);
       }
+    } else {
+      // It's already unlocked in DB, just cache it so we don't query DB again
+      unlockedSessionCache.add(id);
     }
   } catch(e) { console.error("Milestone tracking pipeline fail:", e); }
 }
@@ -396,7 +417,8 @@ function getLocalSaves() {
 function saveHorizonToLocalStorage(explicitName = null) {
   try {
     let saves = getLocalSaves();
-    const saveName = explicitName || prompt("Enter a registry key for this sky state:", currentActiveSkyName) || currentActiveSkyName;
+    
+    let saveName = currentActiveSkyName;
     
     const contextPayload = {
       id: currentActiveSkyId || Date.now().toString(),
@@ -423,10 +445,10 @@ function saveHorizonToLocalStorage(explicitName = null) {
     updateSystemAnalytics();
     triggerMilestoneUnlock('horizon_saved');
     
-    hasUnsavedChanges = false; // Successfully saved, lower the flag
-    toast(`Sky saved safely under index "${saveName}"`);
+    hasUnsavedChanges = false;
+    toast(`"${saveName}" saved`);
   } catch(e) {
-    toast("Archival sequence failed. Core quota limit exception.");
+    toast("failed");
     console.error(e);
   }
 }
@@ -498,6 +520,7 @@ function triggerSystemJSONExport() {
     virtualAnchor.href = URL.createObjectURL(blob);
     virtualAnchor.download = `${currentActiveSkyName.toLowerCase().replace(/\s+/g, '_')}_export.json`;
     virtualAnchor.click();
+    triggerMilestoneUnlock('data_transmission');
   } catch(e) { console.error("Export fault:", e); }
 }
 
@@ -538,7 +561,7 @@ function processMenuStarfieldLoop() {
 function launchSystemHorizonView(multiplayer = false) {
   isMenuLoopRunning = false;
   isMultiplayerMode = multiplayer;
-  hasUnsavedChanges = false; // Reset the tracking flag whenever we load into a sky
+  hasUnsavedChanges = false; 
   
   uiElements.menu.style.display = "none";
   uiElements.header.style.display = "flex";
@@ -553,15 +576,15 @@ function launchSystemHorizonView(multiplayer = false) {
   if(multiplayer) {
     titleNode.innerHTML = `The Shared Sky <span style="font-size:10px; color:var(--gold); vertical-align:middle; margin-left:6px;">ONLINE</span>`;
     document.getElementById('online-count').style.display = "inline";
-    if (saveBtn) saveBtn.style.display = "none"; // Hide Save in Multiplayer
-    if (exportBtn) exportBtn.style.display = "none"; // Hide Export in Multiplayer
+    if (saveBtn) saveBtn.style.display = "none"; 
+    if (exportBtn) exportBtn.style.display = "none"; 
     triggerMilestoneUnlock('multiplayer_voyage');
     connectDatabaseNetworkLayer();
   } else {
     titleNode.textContent = currentActiveSkyName;
     document.getElementById('online-count').style.display = "none";
-    if (saveBtn) saveBtn.style.display = "inline-block"; // Show Save in Singleplayer
-    if (exportBtn) exportBtn.style.display = "inline-block"; // Show Export in Singleplayer
+    if (saveBtn) saveBtn.style.display = "inline-block"; 
+    if (exportBtn) exportBtn.style.display = "inline-block"; 
     disconnectDatabaseNetworkLayer();
   }
   
@@ -604,7 +627,7 @@ async function loadAll() {
     const to = from + step - 1;
     const { data, error } = await db.from('constellations')
       .select('*')
-      .order('created_at', { ascending: true }) // Fetch oldest to newest to preserve order
+      .order('created_at', { ascending: true }) 
       .range(from, to);
     
     if (error) throw new Error(error.message);
@@ -612,9 +635,9 @@ async function loadAll() {
     if (data && data.length > 0) {
       allData = allData.concat(data);
       if (data.length < step) {
-        keepFetching = false; // We got a chunk smaller than step, meaning it's the last page
+        keepFetching = false; 
       } else {
-        from += step; // Advance the pagination window
+        from += step; 
       }
     } else {
       keepFetching = false;
@@ -682,7 +705,6 @@ async function connectDatabaseNetworkLayer() {
     if (constellations.length > 0) latestSeenAt = constellations[constellations.length - 1].created_at;
     updateCount();
     
-    // Initialize presence every time we connect to Multiplayer
     if (!presenceChannel) {
       setupPresence(updateOnlineCount);
     }
@@ -695,7 +717,6 @@ function disconnectDatabaseNetworkLayer() {
     presenceChannel.unsubscribe();
     presenceChannel = null;
   }
-  // BUGFIX: Prevent loaded constellations from being wiped when entering Singleplayer view
   latestSeenAt = null;
 }
 
@@ -962,6 +983,7 @@ function applyZoom(factor, pivotSx, pivotSy) {
   cam.zoom = newZoom;
   cam.x = wx - (pivotSx - W / 2) / cam.zoom;
   cam.y = wy - (pivotSy - H / 2) / cam.zoom;
+  triggerMilestoneUnlock('telescope_focus');
   showZoom();
 }
 
@@ -971,6 +993,15 @@ function showZoom() {
   el.style.opacity = '1';
   clearTimeout(zoomBadgeTimer);
   zoomBadgeTimer = setTimeout(() => el.style.opacity = '0', 1200);
+}
+
+function recordLineConnection() {
+  analyticsRegistry.sessionLinesDrawn++;
+  analyticsRegistry.historicalTotalLinesDrawn++;
+  updateSystemAnalytics();
+  triggerMilestoneUnlock('deep_space_connection');
+  if (analyticsRegistry.historicalTotalLinesDrawn >= 10) triggerMilestoneUnlock('network_init');
+  if (analyticsRegistry.historicalTotalLinesDrawn >= 50) triggerMilestoneUnlock('weaver_of_light');
 }
 
 // ── Input Layer Event Subscriptions (Preserves Mouse Wheel Fixed Controls) ──
@@ -1014,6 +1045,7 @@ canvas.addEventListener('mousemove', e => {
   if (panStart) {
     if (Math.abs(sx - panStart.sx) > 4 || Math.abs(sy - panStart.sy) > 4) {
       didPan = true;
+      triggerMilestoneUnlock('space_explorer');
       if (drawMode === 'line' && dragStartStarIdx !== -1 && lineStart === null) {
         lineStart = dragStartStarIdx;
       }
@@ -1042,8 +1074,7 @@ canvas.addEventListener('mouseup', e => {
         const dup = myLines.some(([a, b]) => (a === dragStartStarIdx && b === hit) || (a === hit && b === dragStartStarIdx));
         if (!dup) {
           myLines.push([dragStartStarIdx, hit]);
-          analyticsRegistry.sessionLinesDrawn++;
-          triggerMilestoneUnlock('deep_space_connection');
+          recordLineConnection();
           hasUnsavedChanges = true;
         }
       }
@@ -1058,8 +1089,7 @@ canvas.addEventListener('mouseup', e => {
           const dup = myLines.some(([a, b]) => (a === lineStart && b === hit) || (a === hit && b === lineStart));
           if (!dup) {
             myLines.push([lineStart, hit]);
-            analyticsRegistry.sessionLinesDrawn++;
-            triggerMilestoneUnlock('deep_space_connection');
+            recordLineConnection();
             hasUnsavedChanges = true;
           }
           lineStart = null;
@@ -1129,6 +1159,7 @@ canvas.addEventListener('touchmove', e => {
 
     if (Math.abs(sx - touchStart.sx) > 5 || Math.abs(sy - touchStart.sy) > 5) {
       didPan = true;
+      triggerMilestoneUnlock('space_explorer');
       if (drawMode === 'line' && dragStartStarIdx !== -1 && lineStart === null) {
         lineStart = dragStartStarIdx;
       }
@@ -1164,8 +1195,7 @@ canvas.addEventListener('touchend', e => {
         const dup = myLines.some(([a, b]) => (a === dragStartStarIdx && b === hit) || (a === hit && b === dragStartStarIdx));
         if (!dup) {
           myLines.push([dragStartStarIdx, hit]);
-          analyticsRegistry.sessionLinesDrawn++;
-          triggerMilestoneUnlock('deep_space_connection');
+          recordLineConnection();
           hasUnsavedChanges = true;
         }
       }
@@ -1180,8 +1210,7 @@ canvas.addEventListener('touchend', e => {
           const dup = myLines.some(([a, b]) => (a === lineStart && b === hit) || (a === hit && b === lineStart));
           if (!dup) {
             myLines.push([lineStart, hit]);
-            analyticsRegistry.sessionLinesDrawn++;
-            triggerMilestoneUnlock('deep_space_connection');
+            recordLineConnection();
             hasUnsavedChanges = true;
           }
           lineStart = null;
@@ -1211,6 +1240,9 @@ function handlePlace(sx, sy) {
       analyticsRegistry.historicalTotalStarsPlaced++;
       updateSystemAnalytics();
       triggerMilestoneUnlock('first_star');
+      if (analyticsRegistry.historicalTotalStarsPlaced >= 10) triggerMilestoneUnlock('star_cluster');
+      if (analyticsRegistry.historicalTotalStarsPlaced >= 100) triggerMilestoneUnlock('galaxy_builder');
+      if (analyticsRegistry.historicalTotalStarsPlaced >= 500) triggerMilestoneUnlock('cosmic_architect');
       updateCount();
       hasUnsavedChanges = true;
     }
@@ -1227,6 +1259,7 @@ function handlePlace(sx, sy) {
       hoveredStar = null;
       updateCount();
       hasUnsavedChanges = true;
+      triggerMilestoneUnlock('stellar_collapse');
       return;
     }
     
@@ -1307,7 +1340,6 @@ function clearCurrent() {
     return;
   }
   
-  // Protect against accidental misclicks
   if (confirm("Are you sure you want to clear your current unsaved stars and lines?")) {
     myStars = []; 
     myLines = []; 
@@ -1315,6 +1347,7 @@ function clearCurrent() {
     dragStartStarIdx = -1; 
     updateCount(); 
     hasUnsavedChanges = true;
+    triggerMilestoneUnlock('void_state');
   }
 }
 
@@ -1363,8 +1396,11 @@ function migrateConstellation(c) {
 
 // ── Interactive Module Subscriptions ──
 document.getElementById('menu-new-sky').onclick = () => {
+  const inputName = prompt("Name your sky:", "Custom Sky");
+  if (inputName === null) return; 
+
   currentActiveSkyId = null;
-  currentActiveSkyName = prompt("Name your sky:", "Custom Sky") || "Custom Sky";
+  currentActiveSkyName = inputName.trim() === "" ? "Custom Sky" : inputName;
   myStars = [];
   myLines = [];
   constellations = [];
@@ -1397,6 +1433,7 @@ document.getElementById('import-file-input').onchange = (e) => {
         toggleOverlay('load', false);
         launchSystemHorizonView(false);
         toast("Vector coordinates mapped successfully");
+        triggerMilestoneUnlock('data_reception');
       } else {
         alert("JSON object properties mismatch target mapping scheme.");
       }
@@ -1417,7 +1454,6 @@ document.getElementById('btn-exit-canvas').onclick = () => {
       saveHorizonToLocalStorage(currentActiveSkyName);
       terminateSystemHorizonView();
     } else {
-      // Abort the exit action, return to canvas seamlessly
       return; 
     }
   } else {
@@ -1456,11 +1492,9 @@ document.getElementById('menu-open-stats').onclick = () => {
   const target = document.getElementById('stats-content');
   const savesCount = getLocalSaves().length;
   target.innerHTML = `
-    <div class="stat-row"><span class="stat-label">Vector Nodes Drawn (Session)</span><span class="stat-value">${analyticsRegistry.sessionStarsPlaced}</span></div>
-    <div class="stat-row"><span class="stat-label">Historical Local Placements</span><span class="stat-value">${analyticsRegistry.historicalTotalStarsPlaced}</span></div>
-    <div class="stat-row"><span class="stat-label">Structural Lines Welded</span><span class="stat-value">${analyticsRegistry.sessionLinesDrawn}</span></div>
-    <div class="stat-row"><span class="stat-label">Persistent Storage Indexes</span><span class="stat-value">${savesCount} horizons</span></div>
-    <div class="stat-row"><span class="stat-label">Database Commit Calls</span><span class="stat-value">${analyticsRegistry.totalSavesExecuted} operations</span></div>
+    <div class="stat-row"><span class="stat-label">Total Stars</span><span class="stat-value">${analyticsRegistry.historicalTotalStarsPlaced}</span></div>
+    <div class="stat-row"><span class="stat-label">Total Lines</span><span class="stat-value">${analyticsRegistry.historicalTotalLinesDrawn}</span></div>
+    <div class="stat-row"><span class="stat-label">Saved Skies</span><span class="stat-value">${savesCount}</span></div>
   `;
   toggleOverlay('stats', true);
 };
@@ -1474,10 +1508,18 @@ document.getElementById('close-stats').onclick = () => toggleOverlay('stats', fa
 window.setDrawMode = setDrawMode;
 window.saveConstellation = saveConstellation;
 window.clearCurrent = clearCurrent;
-window.triggerSystemJSONExport = triggerSystemJSONExport; // Explicitly attach the export function globally
+window.triggerSystemJSONExport = triggerSystemJSONExport;
+window.forceSaveSky = saveHorizonToLocalStorage; 
 
 function init() {
   resize();
+  
+  // Pre-load cached achievements to prevent localized IO stutter
+  try {
+    const store = localStorage.getItem(ACHIEVEMENT_STORAGE_KEY);
+    if (store) JSON.parse(store).forEach(id => unlockedSessionCache.add(id));
+  } catch(e) {}
+
   loadSystemAnalytics();
   constructMenuStarfield();
   processMenuStarfieldLoop();
