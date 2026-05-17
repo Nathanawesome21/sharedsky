@@ -532,16 +532,14 @@ canvas.addEventListener('wheel', e => {
   const { sx, sy } = clientPos(e);
   
   if (e.ctrlKey || e.metaKey) {
+    // Zoom around cursor coordinates during a touchpad pinch gesture
     const factor = Math.exp(-e.deltaY * 0.01);
     applyZoom(factor, sx, sy);
   } else {
-    if (e.deltaX === 0) {
-      const factor = e.deltaY < 0 ? 1.1 : 0.9;
-      applyZoom(factor, sx, sy);
-    } else {
-      cam.x += e.deltaX / cam.zoom;
-      cam.y += e.deltaY / cam.zoom;
-    }
+    // FIXED: Maps all regular vertical wheel inputs directly to step zooming.
+    // Two-finger trackpad panning updates are safely ignored.
+    const factor = e.deltaY < 0 ? 1.1 : 0.9;
+    applyZoom(factor, sx, sy);
   }
 }, { passive: false });
 
