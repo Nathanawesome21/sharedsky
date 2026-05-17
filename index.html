@@ -48,6 +48,22 @@
     #toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(13,13,32,0.95); border: 0.5px solid var(--border); border-radius: 20px; padding: 7px 18px; font-size: 12px; font-style: italic; color: var(--ink-dim); pointer-events: none; opacity: 0; transition: opacity 0.3s; white-space: nowrap; }
     #syncing { position: fixed; top: 62px; left: 50%; transform: translateX(-50%); font-size: 11px; font-style: italic; color: rgba(201,168,76,0.6); pointer-events: none; letter-spacing: 0.06em; opacity: 0; transition: opacity 0.3s; }
     #config-warn { position: fixed; top: 55px; left: 0; right: 0; z-index: 20; background: rgba(180,120,0,0.18); border-bottom: 0.5px solid rgba(201,168,76,0.3); padding: 8px 20px; font-size: 12px; font-style: italic; color: var(--gold); text-align: center; letter-spacing: 0.04em; }
+
+    /* ── Mobile Landscape Force Fix ── */
+    @media screen and (max-width: 768px) and (orientation: portrait) {
+      body {
+        transform: rotate(-90deg);
+        transform-origin: left top;
+        width: 100vh;
+        height: 100vw;
+        position: absolute;
+        top: 100%;
+        left: 0;
+      }
+      #header, #toolbar, #tags, #toast, #syncing, #badge, #zoom-badge {
+        box-sizing: border-box;
+      }
+    }
   </style>
 </head>
 <body>
@@ -237,6 +253,15 @@ function spawnShootingStar() {
   });
 }
 
+// Custom coordinate translation for cross-system mapping under CSS transformation overrides
+function translateClientPos(sx, sy) {
+  const isForcedLandscape = window.innerWidth <= 768 && window.innerHeight > window.innerWidth;
+  if (isForcedLandscape) {
+    return { sx: sy, sy: window.innerHeight - sx };
+  }
+  return { sx, sy };
+}
+
 function updateAndDrawShootingStars() {
   if (Math.random() < 0.008) {
     spawnShootingStar();
@@ -414,7 +439,7 @@ function clientPos(e) {
   const r = canvas.getBoundingClientRect();
   const cx = e.touches ? e.touches[0].clientX : e.clientX;
   const cy = e.touches ? e.touches[0].clientY : e.clientY;
-  return { sx: cx - r.left, sy: cy - r.top };
+  return translateClientPos(cx - r.left, cy - r.top);
 }
 
 function nearestWorldStar(wx, wy, stars, threshWorld = 20) {
@@ -621,9 +646,11 @@ canvas.addEventListener('touchmove', e => {
       e.touches[0].clientX - e.touches[1].clientX,
       e.touches[0].clientY - e.touches[1].clientY
     );
-    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - canvas.getBoundingClientRect().left;
-    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - canvas.getBoundingClientRect().top;
-    if (lastPinchDist) applyZoom(dist / lastPinchDist, midX, midY);
+    const boundingBox = canvas.getBoundingClientRect();
+    const touchMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - boundingBox.left;
+    const touchMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - boundingBox.top;
+    const translatedMid = translateClientPos(touchMidX, touchMidY);
+    if (lastPinchDist) applyZoom(dist / lastPinchDist, translatedMid.sx, translatedMid.sy);
     lastPinchDist = dist;
   } else if (e.touches.length === 1 && touchStart) {
     const { sx, sy } = clientPos(e);
@@ -653,8 +680,10 @@ canvas.addEventListener('touchend', e => {
   lastPinchDist = null;
 
   if (drawMode === 'line' && touchStart) {
-    const sx = e.changedTouches[0].clientX - canvas.getBoundingClientRect().left;
-    const sy = e.changedTouches[0].clientY - canvas.getBoundingClientRect().top;
+    const boundingBox = canvas.getBoundingClientRect();
+    const endX = e.changedTouches[0].clientX - boundingBox.left;
+    const endY = e.changedTouches[0].clientY - boundingBox.top;
+    const { sx, sy } = translateClientPos(endX, endY);
     const { x: wx, y: wy } = screenToWorld(sx, sy);
     const hit = nearestWorldStar(wx, wy, myStars);
 
@@ -761,7 +790,7 @@ async function saveConstellation() {
       updateTags(); updateCount();
     } else {
       const constellationsObj = JSON.parse(JSON.stringify(record));
-      constellations.push(constellationsObj); updateTags(); updateCount();
+      const constellations.push(constellationsObj); updateTags(); updateCount();
     }
     myStars = []; myLines = []; lineStart = null;
     document.getElementById('ni').value = '';
@@ -806,7 +835,18 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.style.opacity = '0', 2600);
 }
-function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+
+function resize() { 
+  const isForcedLandscape = window.innerWidth <= 768 && window.innerHeight > window.innerWidth;
+  
+  if (isForcedLandscape) {
+    W = canvas.width = window.innerHeight;
+    H = canvas.height = window.innerWidth;
+  } else {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+}
 window.addEventListener('resize', resize);
 
 function migrateConstellation(c) {
@@ -832,6 +872,13 @@ async function init() {
     pollForNew();
     setupPresence(updateOnlineCount);
   }
+  
+  if (screen.orientation && screen.orientation.lock) {
+    canvas.addEventListener('click', () => {
+      screen.orientation.lock('landscape').catch(() => {});
+    }, { once: true });
+  }
+
   updateTags(); updateCount();
   render();
 }
