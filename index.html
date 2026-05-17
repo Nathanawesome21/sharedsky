@@ -103,9 +103,6 @@
     #hint { position: fixed; top: 62px; left: 50%; transform: translateX(-50%); font-size: 12px; font-style: italic; color: var(--ink-dim); letter-spacing: 0.06em; pointer-events: none; transition: opacity 0.6s; white-space: nowrap; opacity: 1; display: none; }
     #badge { position: fixed; top: 62px; right: 20px; font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 0.1em; color: var(--ink-dim); display: none; }
     #zoom-badge { position: fixed; bottom: 72px; right: 20px; font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 0.1em; color: var(--ink-dim); opacity: 0; transition: opacity 0.4s; }
-    #tags { position: fixed; top: 62px; left: 20px; display: flex; flex-direction: column; gap: 5px; max-height: calc(100vh - 140px); overflow-y: auto; display: none; }
-    .tag { font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 0.1em; padding: 3px 9px; border-radius: 20px; border: 0.5px solid; opacity: 0.8; animation: fi 0.4s ease; }
-    @keyframes fi { from { opacity: 0; transform: translateY(4px); } to { opacity: 0.8; } }
     #toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(13,13,32,0.95); border: 0.5px solid var(--border); border-radius: 20px; padding: 7px 18px; font-size: 12px; font-style: italic; color: var(--ink-dim); pointer-events: none; opacity: 0; transition: opacity 0.3s; white-space: nowrap; }
     #syncing { position: fixed; top: 62px; left: 50%; transform: translateX(-50%); font-size: 11px; font-style: italic; color: rgba(201,168,76,0.6); pointer-events: none; letter-spacing: 0.06em; opacity: 0; transition: opacity 0.3s; }
     #config-warn { position: fixed; top: 55px; left: 0; right: 0; z-index: 20; background: rgba(180,120,0,0.18); border-bottom: 0.5px solid rgba(201,168,76,0.3); padding: 8px 20px; font-size: 12px; font-style: italic; color: var(--gold); text-align: center; letter-spacing: 0.04em; }
@@ -113,7 +110,7 @@
     /* ── Mobile Landscape Force Fix ── */
     @media screen and (max-width: 768px) and (orientation: portrait) {
       body { transform: rotate(-90deg); transform-origin: left top; width: 100vh; height: 100vw; position: absolute; top: 100%; left: 0; }
-      #header, #toolbar, #tags, #toast, #syncing, #badge, #zoom-badge { box-sizing: border-box; }
+      #header, #toolbar, #toast, #syncing, #badge, #zoom-badge { box-sizing: border-box; }
     }
   </style>
 </head>
@@ -143,10 +140,10 @@
 <div class="overlay" id="overlay-load">
   <div class="overlay-box">
     <button class="overlay-close" id="close-load">&#10005;</button>
-    <h2>Load Local Horizon</h2>
+    <h2>Load Local Sky</h2>
     <ul id="save-list"></ul>
     <div class="io-bar">
-      <button class="io-btn" id="io-import-btn">&#8679; Import JSON Matrix</button>
+      <button class="io-btn" id="io-import-btn">&#8679; Import JSON</button>
       <input type="file" id="import-file-input" accept=".json" style="display: none;">
     </div>
   </div>
@@ -155,7 +152,7 @@
 <div class="overlay" id="overlay-achievements">
   <div class="overlay-box" style="max-width: 520px;">
     <button class="overlay-close" id="close-ach">&#10005;</button>
-    <h2>Constellation Matrix Milestones</h2>
+    <h2>Achievements</h2>
     <div id="ach-progress">0 / 0 Unlocked</div>
     <div id="ach-list"></div>
   </div>
@@ -164,7 +161,7 @@
 <div class="overlay" id="overlay-stats">
   <div class="overlay-box" style="max-width: 400px;">
     <button class="overlay-close" id="close-stats">&#10005;</button>
-    <h2>Telemetry & System Metrics</h2>
+    <h2>Analytics</h2>
     <div id="stats-content"></div>
   </div>
 </div>
@@ -173,14 +170,13 @@
   <h1 id="sky-title-label">The Shared Sky</h1>
   <div id="header-right">
     <span id="online-count"></span>
-    <p>a constellation for every visitor</p>
+    <p>leave your mark on this universe</p>
   </div>
 </div>
 <div id="hint">click to place stars</div>
 <div id="syncing">syncing…</div>
 <div id="badge"></div>
 <div id="zoom-badge"></div>
-<div id="tags"></div>
 <canvas id="sky"></canvas>
 <div id="toolbar">
   <button class="tbtn active" id="btn-star" onclick="setDrawMode('star')">✦ Star</button>
@@ -192,6 +188,8 @@
   <button class="tbtn gold" onclick="saveConstellation()">Add</button>
   <button class="tbtn red"  onclick="clearCurrent()">Clear</button>
   <div class="div"></div>
+  <button class="tbtn" id="btn-save-sky" onclick="forceSaveSky()" style="display: none;">💾 Save</button>
+  <button class="tbtn" id="btn-export-sky" onclick="triggerSystemJSONExport()" style="display: none;">📥 Export</button>
   <button class="tbtn back" id="btn-exit-canvas">← Exit</button>
 </div>
 <div id="toast"></div>
@@ -216,6 +214,7 @@ if (configured) db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ── Application Modes & Identity Matrix ──
 let isMultiplayerMode = false;
+let hasUnsavedChanges = false; // Master tracking flag for unsaved progress
 let currentActiveSkyId = null; 
 let currentActiveSkyName = "Local Sky Base";
 const LOCAL_STORAGE_SAVEDB_KEY = 'sharedsky_local_horizons';
@@ -228,7 +227,6 @@ const uiElements = {
   header: document.getElementById('header'),
   hint: document.getElementById('hint'),
   badge: document.getElementById('badge'),
-  tags: document.getElementById('tags'),
   toolbar: document.getElementById('toolbar')
 };
 
@@ -424,6 +422,8 @@ function saveHorizonToLocalStorage(explicitName = null) {
     analyticsRegistry.totalSavesExecuted++;
     updateSystemAnalytics();
     triggerMilestoneUnlock('horizon_saved');
+    
+    hasUnsavedChanges = false; // Successfully saved, lower the flag
     toast(`Sky saved safely under index "${saveName}"`);
   } catch(e) {
     toast("Archival sequence failed. Core quota limit exception.");
@@ -437,7 +437,7 @@ function processLocalDatabaseRender() {
   const universes = getLocalSaves();
   
   if(universes.length === 0) {
-    container.innerHTML = `<div class="empty-saves">No horizons found in system memory. Create a new template matrix.</div>`;
+    container.innerHTML = `<div class="empty-saves">No skies found in system memory.</div>`;
     return;
   }
   
@@ -471,7 +471,7 @@ function processLocalDatabaseRender() {
     
     row.querySelector('.action-purge-trigger').onclick = (e) => {
       e.stopPropagation();
-      if(confirm(`Purge universe template "${uni.name}" completely from system registry?`)) {
+      if(confirm(`Delete sky "${uni.name}" permanently?`)) {
         let updated = getLocalSaves().filter(t => t.id !== uni.id);
         localStorage.setItem(LOCAL_STORAGE_SAVEDB_KEY, JSON.stringify(updated));
         if(currentActiveSkyId === uni.id) currentActiveSkyId = null;
@@ -538,31 +538,36 @@ function processMenuStarfieldLoop() {
 function launchSystemHorizonView(multiplayer = false) {
   isMenuLoopRunning = false;
   isMultiplayerMode = multiplayer;
+  hasUnsavedChanges = false; // Reset the tracking flag whenever we load into a sky
   
   uiElements.menu.style.display = "none";
   uiElements.header.style.display = "flex";
   uiElements.hint.style.display = "block";
   uiElements.badge.style.display = "block";
-  uiElements.tags.style.display = "flex";
   uiElements.toolbar.style.display = "flex";
   
   const titleNode = document.getElementById('sky-title-label');
+  const saveBtn = document.getElementById('btn-save-sky');
+  const exportBtn = document.getElementById('btn-export-sky');
+  
   if(multiplayer) {
     titleNode.innerHTML = `The Shared Sky <span style="font-size:10px; color:var(--gold); vertical-align:middle; margin-left:6px;">ONLINE</span>`;
     document.getElementById('online-count').style.display = "inline";
+    if (saveBtn) saveBtn.style.display = "none"; // Hide Save in Multiplayer
+    if (exportBtn) exportBtn.style.display = "none"; // Hide Export in Multiplayer
     triggerMilestoneUnlock('multiplayer_voyage');
     connectDatabaseNetworkLayer();
   } else {
     titleNode.textContent = currentActiveSkyName;
     document.getElementById('online-count').style.display = "none";
+    if (saveBtn) saveBtn.style.display = "inline-block"; // Show Save in Singleplayer
+    if (exportBtn) exportBtn.style.display = "inline-block"; // Show Export in Singleplayer
     disconnectDatabaseNetworkLayer();
   }
   
   resize();
-  updateTags();
   updateCount();
 
-  // Start the canvas rendering loop
   requestAnimationFrame(render);
 }
 
@@ -570,11 +575,15 @@ function terminateSystemHorizonView() {
   disconnectDatabaseNetworkLayer();
   isMultiplayerMode = false;
   isMenuLoopRunning = true;
+  hasUnsavedChanges = false;
+  
+  constellations = [];
+  myStars = [];
+  myLines = [];
   
   uiElements.header.style.display = "none";
   uiElements.hint.style.display = "none";
   uiElements.badge.style.display = "none";
-  uiElements.tags.style.display = "none";
   uiElements.toolbar.style.display = "none";
   uiElements.menu.style.display = "flex";
   
@@ -585,9 +594,34 @@ function terminateSystemHorizonView() {
 // ── Database Realtime Synchronization Pipelines (Multiplayer Layer Only) ──
 async function loadAll() {
   if (!db) return [];
-  const { data, error } = await db.from('constellations').select('*').order('created_at', { ascending: true });
-  if (error) throw new Error(error.message);
-  return data || [];
+  
+  let allData = [];
+  let from = 0;
+  const step = 1000;
+  let keepFetching = true;
+
+  while (keepFetching) {
+    const to = from + step - 1;
+    const { data, error } = await db.from('constellations')
+      .select('*')
+      .order('created_at', { ascending: true }) // Fetch oldest to newest to preserve order
+      .range(from, to);
+    
+    if (error) throw new Error(error.message);
+    
+    if (data && data.length > 0) {
+      allData = allData.concat(data);
+      if (data.length < step) {
+        keepFetching = false; // We got a chunk smaller than step, meaning it's the last page
+      } else {
+        from += step; // Advance the pagination window
+      }
+    } else {
+      keepFetching = false;
+    }
+  }
+  
+  return allData;
 }
 
 async function insertOne(record) {
@@ -619,7 +653,6 @@ async function pollForNew() {
         }
       });
       if (added > 0) { 
-        updateTags(); 
         updateCount(); 
         toast(`✦ ${added} new constellation${added > 1 ? 's' : ''} aligned`); 
       }
@@ -647,8 +680,12 @@ async function connectDatabaseNetworkLayer() {
     const raw = await loadAll();
     constellations = raw.map(migrateConstellation);
     if (constellations.length > 0) latestSeenAt = constellations[constellations.length - 1].created_at;
-    updateTags();
     updateCount();
+    
+    // Initialize presence every time we connect to Multiplayer
+    if (!presenceChannel) {
+      setupPresence(updateOnlineCount);
+    }
   } catch(e) { console.error("Database stack hydration fault:", e); }
   showSyncing(false);
 }
@@ -658,7 +695,7 @@ function disconnectDatabaseNetworkLayer() {
     presenceChannel.unsubscribe();
     presenceChannel = null;
   }
-  constellations = [];
+  // BUGFIX: Prevent loaded constellations from being wiped when entering Singleplayer view
   latestSeenAt = null;
 }
 
@@ -763,8 +800,8 @@ function render() {
   updateAndDrawShootingStars();
 
   constellations.forEach(c => {
-    const stars = c.stars;
-    const lines = c.lines;
+    const stars = c.stars || [];
+    const lines = c.lines || [];
 
     ctx.save();
     ctx.strokeStyle = c.color + '50';
@@ -1007,6 +1044,7 @@ canvas.addEventListener('mouseup', e => {
           myLines.push([dragStartStarIdx, hit]);
           analyticsRegistry.sessionLinesDrawn++;
           triggerMilestoneUnlock('deep_space_connection');
+          hasUnsavedChanges = true;
         }
       }
       lineStart = null; 
@@ -1022,6 +1060,7 @@ canvas.addEventListener('mouseup', e => {
             myLines.push([lineStart, hit]);
             analyticsRegistry.sessionLinesDrawn++;
             triggerMilestoneUnlock('deep_space_connection');
+            hasUnsavedChanges = true;
           }
           lineStart = null;
         }
@@ -1127,6 +1166,7 @@ canvas.addEventListener('touchend', e => {
           myLines.push([dragStartStarIdx, hit]);
           analyticsRegistry.sessionLinesDrawn++;
           triggerMilestoneUnlock('deep_space_connection');
+          hasUnsavedChanges = true;
         }
       }
       lineStart = null;
@@ -1142,6 +1182,7 @@ canvas.addEventListener('touchend', e => {
             myLines.push([lineStart, hit]);
             analyticsRegistry.sessionLinesDrawn++;
             triggerMilestoneUnlock('deep_space_connection');
+            hasUnsavedChanges = true;
           }
           lineStart = null;
         }
@@ -1171,10 +1212,7 @@ function handlePlace(sx, sy) {
       updateSystemAnalytics();
       triggerMilestoneUnlock('first_star');
       updateCount();
-      
-      if(isMultiplayerMode && db) {
-        saveConstellationSilently();
-      }
+      hasUnsavedChanges = true;
     }
   } else if (drawMode === 'erase') {
     const starHit = nearestWorldStar(wx, wy, myStars, 24);
@@ -1188,7 +1226,7 @@ function handlePlace(sx, sy) {
       });
       hoveredStar = null;
       updateCount();
-      if(isMultiplayerMode && db) saveConstellationSilently();
+      hasUnsavedChanges = true;
       return;
     }
     
@@ -1212,7 +1250,7 @@ function handlePlace(sx, sy) {
     if (lineIdxToRemove !== -1) {
       myLines.splice(lineIdxToRemove, 1);
       updateCount();
-      if(isMultiplayerMode && db) saveConstellationSilently();
+      hasUnsavedChanges = true;
     }
   }
 }
@@ -1221,25 +1259,38 @@ function handlePlace(sx, sy) {
 async function saveConstellation() {
   if (myStars.length === 0) { toast('place some stars first'); return; }
   
-  if(!isMultiplayerMode) {
-    saveHorizonToLocalStorage();
-    return;
-  }
-  
   const name = document.getElementById('ni').value.trim();
   if (!name) { toast('please name your constellation'); return; }
   
   if (saving) return;
   saving = true;
+
   const color = COLORS[constellations.length % COLORS.length];
-  const record = { name, color, stars: myStars, lines: myLines, canvas_w: 0, canvas_h: 0 };
+  const record = { id: Date.now().toString(), name, color, stars: myStars, lines: myLines, canvas_w: 0, canvas_h: 0 };
+
+  // Singleplayer Logic
+  if(!isMultiplayerMode) {
+    constellations.push(record);
+    myStars = []; myLines = []; lineStart = null; dragStartStarIdx = -1;
+    document.getElementById('ni').value = '';
+    
+    updateCount();
+    triggerMilestoneUnlock('constellation_add');
+    toast('"' + name + '" added');
+    
+    hasUnsavedChanges = true; 
+    saving = false;
+    return;
+  }
+  
+  // Multiplayer Logic
   showSyncing(true);
   try {
     if (db) {
       const saved = await insertOne(record);
       constellations.push(saved);
       latestSeenAt = saved.created_at;
-      updateTags(); updateCount();
+      updateCount();
     }
     myStars = []; myLines = []; lineStart = null; dragStartStarIdx = -1;
     document.getElementById('ni').value = '';
@@ -1250,45 +1301,36 @@ async function saveConstellation() {
   saving = false;
 }
 
-async function saveConstellationSilently() {
-  if (!db || saving || myStars.length === 0) return;
-  const color = '#7eb8ff';
-  const record = { name: "", color, stars: myStars, lines: myLines, canvas_w: 0, canvas_h: 0 };
-  try {
-    await insertOne(record);
-  } catch(e) { console.error("Silent sync background network failure handled:", e); }
-}
-
 function clearCurrent() { 
   if (myStars.length === 0 && myLines.length === 0) {
     toast('nothing to clear');
     return;
   }
-  myStars = []; myLines = []; lineStart = null; dragStartStarIdx = -1; updateCount(); 
+  
+  // Protect against accidental misclicks
+  if (confirm("Are you sure you want to clear your current unsaved stars and lines?")) {
+    myStars = []; 
+    myLines = []; 
+    lineStart = null; 
+    dragStartStarIdx = -1; 
+    updateCount(); 
+    hasUnsavedChanges = true;
+  }
 }
 
 // ── UI Data Synchronizers ──
 function showSyncing(on) { document.getElementById('syncing').style.opacity = on ? '1' : '0'; }
 
 function updateCount() {
-  const total = constellations.reduce((n, c) => n + c.stars.length, 0) + myStars.length;
+  const total = constellations.reduce((n, c) => n + (c.stars ? c.stars.length : 0), 0) + myStars.length;
   document.getElementById('badge').textContent = total > 0 ? total + ' stars in view' : '';
 }
+
 function updateOnlineCount(n) {
   const el = document.getElementById('online-count');
   if (el) el.textContent = n === 1 ? '1 gazing' : n + ' gazing';
 }
-function updateTags() {
-  const el = document.getElementById('tags'); el.innerHTML = '';
-  constellations.slice(-12).forEach(c => {
-    if(!c.name) return;
-    const t = document.createElement('div');
-    t.className = 'tag'; t.style.color = c.color;
-    t.style.borderColor = c.color + '55'; t.style.background = c.color + '0f';
-    t.textContent = '✦ ' + c.name.toUpperCase();
-    el.appendChild(t);
-  });
-}
+
 function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg; el.style.opacity = '1';
@@ -1314,7 +1356,7 @@ function migrateConstellation(c) {
   const offsetY = -c.canvas_h / 2;
   return {
     ...c,
-    stars: c.stars.map(s => ({ ...s, x: s.x + offsetX, y: s.y + offsetY })),
+    stars: (c.stars || []).map(s => ({ ...s, x: s.x + offsetX, y: s.y + offsetY })),
     canvas_w: 0, canvas_h: 0,
   };
 }
@@ -1322,7 +1364,7 @@ function migrateConstellation(c) {
 // ── Interactive Module Subscriptions ──
 document.getElementById('menu-new-sky').onclick = () => {
   currentActiveSkyId = null;
-  currentActiveSkyName = prompt("Name your universe template mapping:", "Custom Horizon") || "Custom Horizon";
+  currentActiveSkyName = prompt("Name your sky:", "Custom Sky") || "Custom Sky";
   myStars = [];
   myLines = [];
   constellations = [];
@@ -1350,7 +1392,7 @@ document.getElementById('import-file-input').onchange = (e) => {
         myStars = parsed.stars || [];
         myLines = parsed.lines || [];
         constellations = parsed.constellations || [];
-        currentActiveSkyName = parsed.name || "Imported Matrix";
+        currentActiveSkyName = parsed.name || "Imported Sky";
         currentActiveSkyId = Date.now().toString();
         toggleOverlay('load', false);
         launchSystemHorizonView(false);
@@ -1367,13 +1409,20 @@ document.getElementById('menu-enter-mp').onclick = () => {
   launchSystemHorizonView(true);
 };
 
+// ── Master Exit Handler ──
 document.getElementById('btn-exit-canvas').onclick = () => {
-  if(!isMultiplayerMode && myStars.length > 0) {
-    if(confirm("Commit active vectors into localized storage index before backing out?")) {
+  if(!isMultiplayerMode && hasUnsavedChanges) {
+    const doSave = confirm("You have unsaved changes! Click OK to Save and Exit, or Cancel to return to the canvas.");
+    if(doSave) {
       saveHorizonToLocalStorage(currentActiveSkyName);
+      terminateSystemHorizonView();
+    } else {
+      // Abort the exit action, return to canvas seamlessly
+      return; 
     }
+  } else {
+    terminateSystemHorizonView();
   }
-  terminateSystemHorizonView();
 };
 
 document.getElementById('menu-open-ach').onclick = () => {
@@ -1425,6 +1474,7 @@ document.getElementById('close-stats').onclick = () => toggleOverlay('stats', fa
 window.setDrawMode = setDrawMode;
 window.saveConstellation = saveConstellation;
 window.clearCurrent = clearCurrent;
+window.triggerSystemJSONExport = triggerSystemJSONExport; // Explicitly attach the export function globally
 
 function init() {
   resize();
@@ -1433,7 +1483,6 @@ function init() {
   processMenuStarfieldLoop();
   
   if(db) {
-    setupPresence(updateOnlineCount);
     pollForNew();
   }
 }
